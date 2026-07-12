@@ -17,6 +17,7 @@ const notifications_1 = __importDefault(require("./routes/notifications"));
 const carbon_1 = __importDefault(require("./routes/carbon"));
 const scoring_1 = __importDefault(require("./routes/scoring"));
 const reports_1 = __importDefault(require("./routes/reports"));
+const esgOverview_1 = __importDefault(require("./routes/esgOverview"));
 const jobs_1 = require("./jobs");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -34,6 +35,8 @@ app.use('/api/notifications', notifications_1.default);
 app.use('/api/carbon-transactions', carbon_1.default);
 app.use('/api/scoring', scoring_1.default);
 app.use('/api/reports', reports_1.default);
+app.use('/api/dashboard', esgOverview_1.default);
+app.use('/api/me/notifications', notifications_1.default);
 (0, jobs_1.startScheduler)();
 app.get('/api/health', (req, res) => {
     res.json({

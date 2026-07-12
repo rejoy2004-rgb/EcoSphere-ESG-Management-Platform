@@ -103,6 +103,31 @@ router.delete('/csr-activities/:id', authenticateJWT, requireRole(['ADMIN', 'ESG
   }
 });
 
+router.get('/participation', authenticateJWT, async (req: AuthenticatedRequest, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  try {
+    const where: any = {};
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'ESG_MANAGER') {
+      where.employeeId = req.user.id;
+    }
+    const list = await prisma.employeeParticipation.findMany({
+      where,
+      include: {
+        employee: true,
+        activity: {
+          include: { department: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(list);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.patch('/csr-activities/:id/status', authenticateJWT, requireRole(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
   const { status } = req.body;
   if (!status) {

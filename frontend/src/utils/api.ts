@@ -17,6 +17,10 @@ export async function apiRequest(path: string, options: RequestOptions = {}) {
     ...(options.headers || {})
   };
 
+  if (options.body && options.body instanceof FormData) {
+    delete (headers as any)['Content-Type'];
+  }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

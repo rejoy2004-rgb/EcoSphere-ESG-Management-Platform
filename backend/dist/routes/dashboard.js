@@ -5,6 +5,51 @@ const client_1 = require("@prisma/client");
 const auth_1 = require("../middleware/auth");
 const prisma = new client_1.PrismaClient();
 const router = (0, express_1.Router)();
+router.get('/environmental', auth_1.authenticateJWT, async (req, res) => {
+    try {
+        const transactions = await prisma.carbonTransaction.findMany({
+            include: { department: true }
+        });
+        let totalEmissions = 0;
+        const deptMap = {};
+        const periodMap = {};
+        for (const t of transactions) {
+            const co2e = Number(t.calculatedCO2e);
+            totalEmissions += co2e;
+            const deptName = t.department?.name || 'Unassigned';
+            deptMap[deptName] = (deptMap[deptName] || 0) + co2e;
+            const period = t.transactionDate.toISOString().slice(0, 7);
+            periodMap[period] = (periodMap[period] || 0) + co2e;
+        }
+        const emissionsByDepartment = Object.entries(deptMap).map(([name, co2e]) => ({
+            departmentName: name,
+            co2e
+        }));
+        const emissionsTrend = Object.entries(periodMap)
+            .map(([period, co2e]) => ({ period, co2e }))
+            .sort((a, b) => a.period.localeCompare(b.period));
+        const goals = await prisma.environmentalGoal.findMany({
+            include: { department: true }
+        });
+        res.json({
+            totalEmissions,
+            emissionsByDepartment,
+            emissionsTrend,
+            goalProgress: goals.map(g => ({
+                id: g.id,
+                title: g.title,
+                targetValue: Number(g.targetValue),
+                currentValue: Number(g.currentValue),
+                unit: g.unit,
+                status: g.status,
+                departmentName: g.department?.name || 'All Departments'
+            }))
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 router.get('/diversity', auth_1.authenticateJWT, async (req, res) => {
     try {
         const records = await prisma.diversityRecord.findMany();

@@ -103,6 +103,31 @@ router.delete('/csr-activities/:id', auth_1.authenticateJWT, (0, auth_1.requireR
         res.status(500).json({ error: error.message });
     }
 });
+router.get('/participation', auth_1.authenticateJWT, async (req, res) => {
+    if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+    try {
+        const where = {};
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'ESG_MANAGER') {
+            where.employeeId = req.user.id;
+        }
+        const list = await prisma.employeeParticipation.findMany({
+            where,
+            include: {
+                employee: true,
+                activity: {
+                    include: { department: true }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(list);
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 router.patch('/csr-activities/:id/status', auth_1.authenticateJWT, (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
     const { status } = req.body;
     if (!status) {
