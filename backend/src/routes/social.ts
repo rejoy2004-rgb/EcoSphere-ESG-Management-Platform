@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateJWT, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { evaluateBadgesForEmployee } from '../services/gamification';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -197,22 +198,33 @@ router.patch('/participation/:id/approve', authenticateJWT, requireRole(['ADMIN'
       return res.status(400).json({ error: 'Proof is required for approval based on system settings' });
     }
     const points = participation.activity.points;
-    const updatedParticipation = await prisma.employeeParticipation.update({
-      where: { id: req.params.id },
-      data: {
-        approvalStatus: 'APPROVED',
-        completionDate: new Date(),
-        pointsEarned: points
-      }
-    });
-    await prisma.user.update({
-      where: { id: participation.employeeId },
-      data: {
-        pointsBalance: {
-          increment: points
+    const [updatedParticipation] = await prisma.$transaction([
+      prisma.employeeParticipation.update({
+        where: { id: req.params.id },
+        data: {
+          approvalStatus: 'APPROVED',
+          completionDate: new Date(),
+          pointsEarned: points
         }
-      }
-    });
+      }),
+      prisma.pointsLedgerEntry.create({
+        data: {
+          employeeId: participation.employeeId,
+          delta: points,
+          reason: 'CSR_APPROVAL',
+          referenceId: participation.id
+        }
+      }),
+      prisma.user.update({
+        where: { id: participation.employeeId },
+        data: {
+          pointsBalance: {
+            increment: points
+          }
+        }
+      })
+    ]);
+    await evaluateBadgesForEmployee(participation.employeeId);
     res.json({
       message: 'Participation approved and points awarded',
       participation: updatedParticipation

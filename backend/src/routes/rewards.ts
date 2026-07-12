@@ -23,9 +23,12 @@ router.get('/', asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const status = req.query.status as string;
+  const userRole = req.headers['x-user-role'] as string;
 
   const where: any = {};
-  if (status) {
+  if (userRole === 'EMPLOYEE' || !userRole) {
+    where.status = 'ACTIVE';
+  } else if (status) {
     where.status = status;
   }
 
@@ -101,6 +104,77 @@ router.delete('/:id', requireRole(['ADMIN']), asyncHandler(async (req, res) => {
   });
 
   res.json({ message: 'Reward soft deleted successfully', data: deletedReward });
+}));
+
+const getEmployeeId = (req: any): string => {
+  const headerId = req.headers['x-user-id'] || req.headers['x-employee-id'];
+  const finalId = req.user?.id || (Array.isArray(headerId) ? headerId[0] : headerId);
+  if (!finalId) {
+    throw new AppError(401, 'UNAUTHORIZED', 'Employee identification is required');
+  }
+  return finalId as string;
+};
+
+router.post('/:id/redeem', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const employeeId = getEmployeeId(req);
+
+  const reward = await prisma.reward.findUnique({ where: { id } });
+  if (!reward) {
+    throw new AppError(404, 'NOT_FOUND', 'Reward not found');
+  }
+
+  if (reward.stock <= 0) {
+    throw new AppError(400, 'BAD_REQUEST', 'Reward is out of stock');
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: employeeId } });
+  if (!user) {
+    throw new AppError(400, 'BAD_REQUEST', 'Employee not found');
+  }
+
+  if (user.pointsBalance < reward.pointsRequired) {
+    throw new AppError(400, 'BAD_REQUEST', 'Insufficient points balance');
+  }
+
+  const nextStock = reward.stock - 1;
+  const nextStatus = nextStock === 0 ? 'OUT_OF_STOCK' : reward.status;
+
+  const [redemption] = await prisma.$transaction([
+    prisma.redemption.create({
+      data: {
+        employeeId,
+        rewardId: id
+      }
+    }),
+    prisma.reward.update({
+      where: { id },
+      data: {
+        stock: nextStock,
+        status: nextStatus
+      }
+    }),
+    prisma.pointsLedgerEntry.create({
+      data: {
+        employeeId,
+        delta: -reward.pointsRequired,
+        reason: 'REWARD_REDEMPTION',
+        referenceId: id
+      }
+    }),
+    prisma.user.update({
+      where: { id: employeeId },
+      data: {
+        pointsBalance: {
+          decrement: reward.pointsRequired
+        }
+      }
+    })
+  ]);
+
+  console.log(`[Notification Stub] Employee ${employeeId} redeemed reward ${reward.name}!`);
+
+  res.json(redemption);
 }));
 
 export default router;

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { authenticateJWT, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { isValidTransition } from '../utils/transitions';
+import { evaluateBadgesForEmployee } from '../services/gamification';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -185,21 +186,32 @@ router.patch('/participation/challenge/:id/approve', authenticateJWT, requireRol
       return res.status(400).json({ error: 'Proof file is required for this challenge' });
     }
     const xp = participation.challenge.xp;
-    const updated = await prisma.challengeParticipation.update({
-      where: { id: req.params.id },
-      data: {
-        approval: 'APPROVED',
-        xpAwarded: xp
-      }
-    });
-    await prisma.user.update({
-      where: { id: participation.employeeId },
-      data: {
-        pointsBalance: {
-          increment: xp
+    const [updated] = await prisma.$transaction([
+      prisma.challengeParticipation.update({
+        where: { id: req.params.id },
+        data: {
+          approval: 'APPROVED',
+          xpAwarded: xp
         }
-      }
-    });
+      }),
+      prisma.pointsLedgerEntry.create({
+        data: {
+          employeeId: participation.employeeId,
+          delta: xp,
+          reason: 'CHALLENGE_APPROVAL',
+          referenceId: participation.id
+        }
+      }),
+      prisma.user.update({
+        where: { id: participation.employeeId },
+        data: {
+          pointsBalance: {
+            increment: xp
+          }
+        }
+      })
+    ]);
+    await evaluateBadgesForEmployee(participation.employeeId);
     res.json({
       message: 'Challenge participation approved and XP awarded',
       participation: updated

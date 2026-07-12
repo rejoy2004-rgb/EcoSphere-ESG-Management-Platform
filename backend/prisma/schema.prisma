@@ -114,6 +114,9 @@ model User {
   diversityRecord        DiversityRecord?
   trainingRecords        TrainingRecord[]
   challengeParticipations ChallengeParticipation[] @relation("UserChallengeParticipations")
+  pointsLedgerEntries    PointsLedgerEntry[]
+  employeeBadges         EmployeeBadge[]
+  redemptions            Redemption[]
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 }
@@ -292,24 +295,26 @@ model ComplianceIssue {
 }
 
 model Badge {
-  id             String   @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
   description    String?
   unlockRuleJson String
   iconUrl        String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  employeeBadges EmployeeBadge[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Reward {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   name           String
   description    String?
   pointsRequired Int
   stock          Int
-  status         String   @default("ACTIVE")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status         String       @default("ACTIVE")
+  redemptions    Redemption[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 model EnvironmentalGoal {
@@ -412,3 +417,48 @@ model HealthCheck {
   status    String
   checkedAt DateTime @default(now())
 }
+
+enum LedgerReason {
+  CSR_APPROVAL
+  CHALLENGE_APPROVAL
+  REWARD_REDEMPTION
+  MANUAL_ADJUSTMENT
+}
+
+model PointsLedgerEntry {
+  id          String       @id @default(uuid())
+  employeeId  String
+  employee    User         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  delta       Int
+  reason      LedgerReason
+  referenceId String?
+  createdAt   DateTime     @default(now())
+
+  @@index([employeeId])
+}
+
+model EmployeeBadge {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  badgeId    String
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  unlockedAt DateTime @default(now())
+
+  @@unique([employeeId, badgeId])
+  @@index([employeeId])
+  @@index([badgeId])
+}
+
+model Redemption {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  rewardId   String
+  reward     Reward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  redeemedAt DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([rewardId])
+}
+

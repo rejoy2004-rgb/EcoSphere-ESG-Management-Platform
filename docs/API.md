@@ -704,3 +704,67 @@ Retrieve governance module aggregates.
   }
   ```
 
+---
+
+## 14. Gamification Module
+
+### Points/XP Ledger Design
+The user points balance (`User.pointsBalance`) is maintained as a cached total on the `User` model. To ensure data integrity, any points awarded or deducted are written as transaction records in `PointsLedgerEntry` and update the cached total transactionally in a single database atomic operation.
+
+### GET /api/employees/:id/badges
+Retrieve all badges unlocked by the employee.
+- **Response:**
+  ```json
+  [
+    {
+      "id": "employee-badge-uuid-1",
+      "employeeId": "employee-uuid-1",
+      "badgeId": "badge-uuid-1",
+      "unlockedAt": "2026-07-12T14:41:00.000Z",
+      "badge": {
+        "id": "badge-uuid-1",
+        "name": "Carbon Reducer Pro",
+        "description": "Unlock this badge by completing 5 challenges",
+        "unlockRuleJson": "{\"metric\":\"XP\",\"operator\":\">=\",\"value\":100}",
+        "iconUrl": "https://cdn.ecosphere.local/icons/carbon-pro.png"
+      }
+    }
+  ]
+  ```
+
+### GET /api/rewards
+Retrieve rewards catalog. If the requester has role `EMPLOYEE` or the role is omitted, only `ACTIVE` rewards are returned.
+- **Response:** 200 OK
+
+### POST /api/rewards/:id/redeem
+Redeem a reward. Validates that stock is greater than 0 and the employee has sufficient points balance, then atomically decrements stock, records the redemption, writes a negative ledger entry, and updates user points balance.
+- **Headers:**
+  - `x-user-id: employee-uuid-1`
+- **Response:** 200 OK
+
+### GET /api/me/redemptions
+Retrieve the logged-in employee's own reward redemptions.
+- **Headers:**
+  - `x-user-id: employee-uuid-1`
+- **Response:** 200 OK
+
+### GET /api/leaderboard
+Retrieve ranked leaderboards.
+- **Query Parameters:**
+  - `scope`: `org` or `department`
+  - `departmentId`: required if scope is `department`
+  - `period`: `week`, `month`, `quarter`, or `all` (default)
+- **Response:**
+  ```json
+  [
+    {
+      "rank": 1,
+      "id": "employee-uuid-1",
+      "name": "John Doe",
+      "department": "Engineering",
+      "points": 120
+    }
+  ]
+  ```
+
+
