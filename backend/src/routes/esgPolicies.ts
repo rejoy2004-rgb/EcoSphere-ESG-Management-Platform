@@ -133,4 +133,49 @@ router.delete('/:id', requireRole(['ADMIN', 'ESG_MANAGER']), asyncHandler(async 
   res.json({ message: 'ESG Policy soft deleted successfully', data: deletedPolicy });
 }));
 
+router.patch('/:id/publish', requireRole(['ADMIN', 'ESG_MANAGER']), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const policy = await prisma.eSGPolicy.findUnique({ where: { id } });
+  if (!policy) {
+    throw new AppError(404, 'NOT_FOUND', 'ESG Policy not found');
+  }
+
+  const updatedPolicy = await prisma.eSGPolicy.update({
+    where: { id },
+    data: { status: 'PUBLISHED' }
+  });
+
+  if (policy.status !== 'PUBLISHED' && policy.mandatoryAcknowledgement) {
+    const users = await prisma.user.findMany();
+    const ackData = users.map((user) => ({
+      employeeId: user.id,
+      policyId: policy.id,
+      status: 'PENDING' as const
+    }));
+    if (ackData.length > 0) {
+      await prisma.policyAcknowledgement.createMany({
+        data: ackData,
+        skipDuplicates: true
+      });
+    }
+  }
+
+  res.json(updatedPolicy);
+}));
+
+router.get('/:id/acknowledgements', requireRole(['ADMIN', 'ESG_MANAGER']), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const policy = await prisma.eSGPolicy.findUnique({ where: { id } });
+  if (!policy) {
+    throw new AppError(404, 'NOT_FOUND', 'ESG Policy not found');
+  }
+
+  const acks = await prisma.policyAcknowledgement.findMany({
+    where: { policyId: id },
+    include: { employee: true }
+  });
+
+  res.json(acks);
+}));
+
 export default router;

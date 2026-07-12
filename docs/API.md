@@ -603,3 +603,104 @@ Retrieve environmental statistics summary.
     }
   }
   ```
+
+---
+
+## 13. Governance Module
+
+### PATCH /api/policies/:id/publish
+Publish an ESG Policy. Auto-creates pending acknowledgements for all active employees if `mandatoryAcknowledgement` is true.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Headers:**
+  - `x-user-role: ESG_MANAGER`
+- **Response:** 200 OK
+
+### GET /api/policies/:id/acknowledgements
+Retrieve all acknowledgements of a policy, including employee details.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Headers:**
+  - `x-user-role: ESG_MANAGER`
+- **Response:**
+  ```json
+  [
+    {
+      "id": "ack-uuid-1",
+      "employeeId": "emp-uuid-1",
+      "policyId": "policy-uuid-1",
+      "status": "PENDING",
+      "acknowledgedAt": null,
+      "employee": {
+        "id": "emp-uuid-1",
+        "name": "John Doe",
+        "email": "john@ecosphere.local"
+      }
+    }
+  ]
+  ```
+
+### POST /api/acknowledgements/:id/acknowledge
+Acknowledge a policy.
+- **Headers:**
+  - `x-user-id: employee-uuid-1`
+- **Response:**
+  ```json
+  {
+    "id": "ack-uuid-1",
+    "employeeId": "employee-uuid-1",
+    "policyId": "policy-uuid-1",
+    "status": "ACKNOWLEDGED",
+    "acknowledgedAt": "2026-07-12T14:41:00.000Z"
+  }
+  ```
+
+### GET /api/me/acknowledgements
+Retrieve employee's own acknowledgements list.
+- **Headers:**
+  - `x-user-id: employee-uuid-1`
+- **Response:** 200 OK
+
+### PATCH /api/audits/:id/status
+Update the status of an Audit.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Headers:**
+  - `x-user-role: ESG_MANAGER`
+- **Body:**
+  ```json
+  {
+    "status": "IN_PROGRESS"
+  }
+  ```
+- **Response:** 200 OK
+
+### GET /api/compliance-issues?overdue=true
+Retrieve overdue compliance issues (status not RESOLVED/CLOSED and dueDate has passed).
+- **Response:** 200 OK
+
+### PATCH /api/compliance-issues/:id/status
+Update status of a compliance issue.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Headers:**
+  - `x-user-role: ESG_MANAGER`
+- **Body:**
+  ```json
+  {
+    "status": "RESOLVED"
+  }
+  ```
+- **Response:** 200 OK
+
+### GET /api/dashboard/governance
+Retrieve governance module aggregates.
+- **Query Parameters:**
+  - `from`: `2026-07-01T00:00:00.000Z`
+  - `to`: `2026-07-31T23:59:59.000Z`
+- **Response:**
+  ```json
+  {
+    "policyAcknowledgementRate": 75.0,
+    "openComplianceIssues": 4,
+    "overdueComplianceIssues": 2,
+    "auditsCompletedThisPeriod": 1
+  }
+  ```
+
