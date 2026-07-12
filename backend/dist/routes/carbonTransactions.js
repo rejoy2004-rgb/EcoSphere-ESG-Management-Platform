@@ -99,6 +99,13 @@ router.get('/summary', (0, errors_1.asyncHandler)(async (req, res) => {
 }));
 router.post('/', (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), (0, validation_1.validateBody)(createSchema), (0, errors_1.asyncHandler)(async (req, res) => {
     const { departmentId, sourceType, quantity, unit, co2eFactor, transactionDate, description, createdById } = req.body;
+    const setting = await prisma_1.prisma.systemSetting.findFirst();
+    const autoCalcEnabled = setting ? setting.autoEmissionCalculationEnabled : true;
+    if (!autoCalcEnabled && co2eFactor === undefined) {
+        throw new errors_1.AppError(400, 'VALIDATION_ERROR', 'Auto-calculation is disabled. Please provide a manual co2eFactor.', {
+            co2eFactor: 'Manual factor required'
+        });
+    }
     const dept = await prisma_1.prisma.department.findUnique({ where: { id: departmentId } });
     if (!dept) {
         throw new errors_1.AppError(400, 'VALIDATION_ERROR', 'Department not found', { departmentId: 'Department does not exist' });

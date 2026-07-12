@@ -116,7 +116,8 @@ export const Settings: React.FC = () => {
             name: newDept.name,
             code: newDept.code,
             parentDepartmentId: newDept.parentDepartmentId || null,
-            headId: newDept.headId || null
+            headId: newDept.headId || null,
+            status: 'ACTIVE'
           }
         });
       }
@@ -148,7 +149,8 @@ export const Settings: React.FC = () => {
           method: 'POST',
           body: {
             name: newCat.name,
-            type: newCat.type
+            type: newCat.type,
+            status: 'ACTIVE'
           }
         });
       }

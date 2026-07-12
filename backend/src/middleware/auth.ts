@@ -38,7 +38,7 @@ export function authenticateJWT(req: AuthenticatedRequest, res: Response, next: 
 
 export const requireRole = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const userRole = req.headers['x-user-role'];
+    const userRole = req.headers['x-user-role'] || (req as any).user?.role;
     if (!userRole) {
       return next(new AppError(401, 'UNAUTHORIZED', 'Authentication credentials are required'));
     }
