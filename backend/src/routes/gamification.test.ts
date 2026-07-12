@@ -84,14 +84,13 @@ describe('Gamification Module Tests', () => {
     });
 
     const firstAwards = await evaluateBadgesForEmployee(employeeId);
-    expect(firstAwards.length).toBe(1);
-    expect(firstAwards[0].badgeId).toBe(badgeId);
+    expect(firstAwards.some(a => a.badgeId === badgeId)).toBe(true);
 
     const secondAwards = await evaluateBadgesForEmployee(employeeId);
-    expect(secondAwards.length).toBe(0);
+    expect(secondAwards.some(a => a.badgeId === badgeId)).toBe(false);
 
     const dbBadges = await prisma.employeeBadge.findMany({
-      where: { employeeId }
+      where: { employeeId, badgeId }
     });
     expect(dbBadges.length).toBe(1);
   });

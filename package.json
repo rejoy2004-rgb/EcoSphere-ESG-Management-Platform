@@ -10,6 +10,8 @@
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
-    "build:frontend": "npm run build --workspace=frontend"
+    "build:frontend": "npm run build --workspace=frontend",
+    "db:migrate": "npx prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss",
+    "db:seed": "npx prisma db seed --schema=backend/prisma/schema.prisma"
   }
 }
