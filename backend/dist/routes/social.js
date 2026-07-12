@@ -4,6 +4,8 @@ const express_1 = require("express");
 const client_1 = require("@prisma/client");
 const auth_1 = require("../middleware/auth");
 const upload_1 = require("../middleware/upload");
+const gamification_1 = require("../services/gamification");
+const notificationService_1 = require("../services/notificationService");
 const prisma = new client_1.PrismaClient();
 const router = (0, express_1.Router)();
 router.post('/csr-activities', auth_1.authenticateJWT, (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER', 'DEPARTMENT_HEAD']), async (req, res) => {
@@ -193,27 +195,39 @@ router.patch('/participation/:id/approve', auth_1.authenticateJWT, (0, auth_1.re
             return res.status(404).json({ error: 'Participation record not found' });
         }
         const settings = await prisma.systemSetting.findFirst();
-        const evidenceRequired = settings ? settings.evidenceRequirement : false;
+        const evidenceRequired = settings ? settings.evidenceRequirementEnabled : false;
         if (evidenceRequired && !participation.proofUrl) {
             return res.status(400).json({ error: 'Proof is required for approval based on system settings' });
         }
         const points = participation.activity.points;
-        const updatedParticipation = await prisma.employeeParticipation.update({
-            where: { id: req.params.id },
-            data: {
-                approvalStatus: 'APPROVED',
-                completionDate: new Date(),
-                pointsEarned: points
-            }
-        });
-        await prisma.user.update({
-            where: { id: participation.employeeId },
-            data: {
-                pointsBalance: {
-                    increment: points
+        const [updatedParticipation] = await prisma.$transaction([
+            prisma.employeeParticipation.update({
+                where: { id: req.params.id },
+                data: {
+                    approvalStatus: 'APPROVED',
+                    completionDate: new Date(),
+                    pointsEarned: points
                 }
-            }
-        });
+            }),
+            prisma.pointsLedgerEntry.create({
+                data: {
+                    employeeId: participation.employeeId,
+                    delta: points,
+                    reason: 'CSR_APPROVAL',
+                    referenceId: participation.id
+                }
+            }),
+            prisma.user.update({
+                where: { id: participation.employeeId },
+                data: {
+                    pointsBalance: {
+                        increment: points
+                    }
+                }
+            })
+        ]);
+        await (0, gamification_1.evaluateBadgesForEmployee)(participation.employeeId);
+        await (0, notificationService_1.sendNotification)(participation.employeeId, 'CSR_APPROVED', `Your participation in CSR Activity "${participation.activity.title}" was approved.`);
         res.json({
             message: 'Participation approved and points awarded',
             participation: updatedParticipation
@@ -225,12 +239,20 @@ router.patch('/participation/:id/approve', auth_1.authenticateJWT, (0, auth_1.re
 });
 router.patch('/participation/:id/reject', auth_1.authenticateJWT, (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
     try {
+        const participation = await prisma.employeeParticipation.findUnique({
+            where: { id: req.params.id },
+            include: { activity: true }
+        });
+        if (!participation) {
+            return res.status(404).json({ error: 'Participation record not found' });
+        }
         const updated = await prisma.employeeParticipation.update({
             where: { id: req.params.id },
             data: {
                 approvalStatus: 'REJECTED'
             }
         });
+        await (0, notificationService_1.sendNotification)(participation.employeeId, 'CSR_REJECTED', `Your participation in CSR Activity "${participation.activity.title}" was rejected.`);
         res.json(updated);
     }
     catch (error) {

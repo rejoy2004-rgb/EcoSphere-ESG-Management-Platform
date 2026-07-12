@@ -114,9 +114,10 @@ model User {
   diversityRecord        DiversityRecord?
   trainingRecords        TrainingRecord[]
   challengeParticipations ChallengeParticipation[] @relation("UserChallengeParticipations")
-  pointsLedgerEntries    PointsLedgerEntry[]
-  employeeBadges         EmployeeBadge[]
-  redemptions            Redemption[]
+  notifications           Notification[]           @relation("UserNotifications")
+  pointsLedger           PointsLedgerEntry[]      @relation("UserPointsLedger")
+  badges                 EmployeeBadge[]          @relation("UserBadges")
+  redemptions            Redemption[]             @relation("UserRedemptions")
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 }
@@ -137,6 +138,7 @@ model Department {
   csrActivities      CSRActivity[]
   audits             Audit[]             @relation("AuditDepartment")
   environmentalGoals EnvironmentalGoal[]
+  sourceRecords      SourceRecord[]      @relation("DepartmentSourceRecords")
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -269,8 +271,8 @@ model Audit {
   findingsSummary  String?
   status           AuditStatus       @default(PLANNED)
   complianceIssues ComplianceIssue[]
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   @@index([departmentId])
   @@index([auditorId])
@@ -300,7 +302,7 @@ model Badge {
   description    String?
   unlockRuleJson String
   iconUrl        String
-  employeeBadges EmployeeBadge[]
+  employees      EmployeeBadge[] @relation("BadgeEmployees")
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -312,7 +314,7 @@ model Reward {
   pointsRequired Int
   stock          Int
   status         String       @default("ACTIVE")
-  redemptions    Redemption[]
+  redemptions    Redemption[] @relation("RewardRedemptions")
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
@@ -371,10 +373,47 @@ model TrainingRecord {
 }
 
 model SystemSetting {
-  id                  String   @id @default("default")
-  evidenceRequirement Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                              String   @id @default("default")
+  esgWeightEnvironmental          Int      @default(40)
+  esgWeightSocial                 Int      @default(30)
+  esgWeightGovernance             Int      @default(30)
+  subScoreFormulaConfigJson       String   @default("{}")
+  autoEmissionCalculationEnabled  Boolean  @default(true)
+  evidenceRequirementEnabled      Boolean  @default(false)
+  badgeAutoAwardEnabled           Boolean  @default(true)
+  notificationChannels            String   @default("{}")
+  policyReminderCadenceDays       Int      @default(7)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  channel   String   @default("IN_APP")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SourceRecord {
+  id           String     @id @default(uuid())
+  type         String
+  departmentId String
+  department   Department @relation("DepartmentSourceRecords", fields: [departmentId], references: [id], onDelete: Cascade)
+  quantity     Decimal    @db.Decimal(12, 4)
+  unit         String
+  date         DateTime
+  processed    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([departmentId])
 }
 
 model Challenge {
@@ -412,27 +451,14 @@ model ChallengeParticipation {
   @@index([employeeId])
 }
 
-model HealthCheck {
-  id        Int      @id @default(autoincrement())
-  status    String
-  checkedAt DateTime @default(now())
-}
-
-enum LedgerReason {
-  CSR_APPROVAL
-  CHALLENGE_APPROVAL
-  REWARD_REDEMPTION
-  MANUAL_ADJUSTMENT
-}
-
 model PointsLedgerEntry {
-  id          String       @id @default(uuid())
+  id          String   @id @default(uuid())
   employeeId  String
-  employee    User         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee    User     @relation("UserPointsLedger", fields: [employeeId], references: [id], onDelete: Cascade)
   delta       Int
-  reason      LedgerReason
+  reason      String
   referenceId String?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime @default(now())
 
   @@index([employeeId])
 }
@@ -440,9 +466,9 @@ model PointsLedgerEntry {
 model EmployeeBadge {
   id         String   @id @default(uuid())
   employeeId String
-  employee   User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   User     @relation("UserBadges", fields: [employeeId], references: [id], onDelete: Cascade)
   badgeId    String
-  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  badge      Badge    @relation("BadgeEmployees", fields: [badgeId], references: [id], onDelete: Cascade)
   unlockedAt DateTime @default(now())
 
   @@unique([employeeId, badgeId])
@@ -451,14 +477,22 @@ model EmployeeBadge {
 }
 
 model Redemption {
-  id         String   @id @default(uuid())
-  employeeId String
-  employee   User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  rewardId   String
-  reward     Reward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
-  redeemedAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    User     @relation("UserRedemptions", fields: [employeeId], references: [id], onDelete: Cascade)
+  rewardId    String
+  reward      Reward   @relation("RewardRedemptions", fields: [rewardId], references: [id], onDelete: Cascade)
+  pointsSpent Int      @default(0)
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([employeeId])
   @@index([rewardId])
 }
 
+model HealthCheck {
+  id        Int      @id @default(autoincrement())
+  status    String
+  checkedAt DateTime @default(now())
+}

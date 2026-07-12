@@ -5,6 +5,8 @@ const client_1 = require("@prisma/client");
 const auth_1 = require("../middleware/auth");
 const upload_1 = require("../middleware/upload");
 const transitions_1 = require("../utils/transitions");
+const gamification_1 = require("../services/gamification");
+const notificationService_1 = require("../services/notificationService");
 const prisma = new client_1.PrismaClient();
 const router = (0, express_1.Router)();
 router.post('/challenges', auth_1.authenticateJWT, (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
@@ -181,25 +183,39 @@ router.patch('/participation/challenge/:id/approve', auth_1.authenticateJWT, (0,
         if (!participation) {
             return res.status(404).json({ error: 'Challenge participation record not found' });
         }
-        if (participation.challenge.evidenceRequired && !participation.proofUrl) {
+        const settings = await prisma.systemSetting.findFirst();
+        const globalReq = settings ? settings.evidenceRequirementEnabled : false;
+        if ((participation.challenge.evidenceRequired || globalReq) && !participation.proofUrl) {
             return res.status(400).json({ error: 'Proof file is required for this challenge' });
         }
         const xp = participation.challenge.xp;
-        const updated = await prisma.challengeParticipation.update({
-            where: { id: req.params.id },
-            data: {
-                approval: 'APPROVED',
-                xpAwarded: xp
-            }
-        });
-        await prisma.user.update({
-            where: { id: participation.employeeId },
-            data: {
-                pointsBalance: {
-                    increment: xp
+        const [updated] = await prisma.$transaction([
+            prisma.challengeParticipation.update({
+                where: { id: req.params.id },
+                data: {
+                    approval: 'APPROVED',
+                    xpAwarded: xp
                 }
-            }
-        });
+            }),
+            prisma.pointsLedgerEntry.create({
+                data: {
+                    employeeId: participation.employeeId,
+                    delta: xp,
+                    reason: 'CHALLENGE_APPROVAL',
+                    referenceId: participation.id
+                }
+            }),
+            prisma.user.update({
+                where: { id: participation.employeeId },
+                data: {
+                    pointsBalance: {
+                        increment: xp
+                    }
+                }
+            })
+        ]);
+        await (0, gamification_1.evaluateBadgesForEmployee)(participation.employeeId);
+        await (0, notificationService_1.sendNotification)(participation.employeeId, 'CHALLENGE_APPROVED', `Your participation in Challenge "${participation.challenge.title}" was approved.`);
         res.json({
             message: 'Challenge participation approved and XP awarded',
             participation: updated
@@ -211,12 +227,20 @@ router.patch('/participation/challenge/:id/approve', auth_1.authenticateJWT, (0,
 });
 router.patch('/participation/challenge/:id/reject', auth_1.authenticateJWT, (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
     try {
+        const participation = await prisma.challengeParticipation.findUnique({
+            where: { id: req.params.id },
+            include: { challenge: true }
+        });
+        if (!participation) {
+            return res.status(404).json({ error: 'Challenge participation record not found' });
+        }
         const updated = await prisma.challengeParticipation.update({
             where: { id: req.params.id },
             data: {
                 approval: 'REJECTED'
             }
         });
+        await (0, notificationService_1.sendNotification)(participation.employeeId, 'CHALLENGE_REJECTED', `Your participation in Challenge "${participation.challenge.title}" was rejected.`);
         res.json(updated);
     }
     catch (error) {

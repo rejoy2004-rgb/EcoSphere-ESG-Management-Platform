@@ -62,7 +62,7 @@ router.post('/', (0, auth_1.requireRole)(['ADMIN']), (0, validation_1.validateBo
         data: {
             name,
             description,
-            unlockRuleJson,
+            unlockRuleJson: JSON.stringify(unlockRuleJson),
             iconUrl: iconUrl || null
         }
     });
@@ -80,7 +80,7 @@ router.put('/:id', (0, auth_1.requireRole)(['ADMIN']), (0, validation_1.validate
         data: {
             name,
             description,
-            unlockRuleJson,
+            unlockRuleJson: unlockRuleJson ? JSON.stringify(unlockRuleJson) : undefined,
             iconUrl: iconUrl === undefined ? undefined : (iconUrl || null)
         }
     });
@@ -96,5 +96,17 @@ router.delete('/:id', (0, auth_1.requireRole)(['ADMIN']), (0, errors_1.asyncHand
         where: { id }
     });
     res.json({ message: 'Badge hard deleted successfully', data: deletedBadge });
+}));
+router.get('/:id/badges', (0, errors_1.asyncHandler)(async (req, res) => {
+    const { id } = req.params;
+    const user = await prisma_1.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+        throw new errors_1.AppError(404, 'NOT_FOUND', 'Employee not found');
+    }
+    const employeeBadges = await prisma_1.prisma.employeeBadge.findMany({
+        where: { employeeId: id },
+        include: { badge: true }
+    });
+    res.json(employeeBadges);
 }));
 exports.default = router;

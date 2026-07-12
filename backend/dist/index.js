@@ -12,6 +12,11 @@ const social_1 = __importDefault(require("./routes/social"));
 const training_1 = __importDefault(require("./routes/training"));
 const dashboard_1 = __importDefault(require("./routes/dashboard"));
 const challenges_1 = __importDefault(require("./routes/challenges"));
+const settings_1 = __importDefault(require("./routes/settings"));
+const notifications_1 = __importDefault(require("./routes/notifications"));
+const carbon_1 = __importDefault(require("./routes/carbon"));
+const scoring_1 = __importDefault(require("./routes/scoring"));
+const jobs_1 = require("./jobs");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 4000;
@@ -23,6 +28,11 @@ app.use('/api', social_1.default);
 app.use('/api/training-records', training_1.default);
 app.use('/api/dashboard', dashboard_1.default);
 app.use('/api', challenges_1.default);
+app.use('/api/settings', settings_1.default);
+app.use('/api/notifications', notifications_1.default);
+app.use('/api/carbon-transactions', carbon_1.default);
+app.use('/api/scoring', scoring_1.default);
+(0, jobs_1.startScheduler)();
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',

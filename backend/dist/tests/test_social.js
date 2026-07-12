@@ -62,7 +62,7 @@ async function runSocialVerification() {
             }
         });
         await prisma.systemSetting.create({
-            data: { id: 'default', evidenceRequirement: true }
+            data: { id: 'default', evidenceRequirementEnabled: true }
         });
         const cat = await prisma.category.create({
             data: { name: 'Volunteering', type: 'CSR_ACTIVITY', status: 'ACTIVE' }
@@ -94,7 +94,7 @@ async function runSocialVerification() {
         let blocked = false;
         try {
             const settings = await prisma.systemSetting.findFirst();
-            if (settings?.evidenceRequirement && !participation.proofUrl) {
+            if (settings?.evidenceRequirementEnabled && !participation.proofUrl) {
                 blocked = true;
             }
         }

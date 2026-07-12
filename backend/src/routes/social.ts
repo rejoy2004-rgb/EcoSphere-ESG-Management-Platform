@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { authenticateJWT, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { evaluateBadgesForEmployee } from '../services/gamification';
+import { sendNotification } from '../services/notificationService';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -193,7 +194,7 @@ router.patch('/participation/:id/approve', authenticateJWT, requireRole(['ADMIN'
       return res.status(404).json({ error: 'Participation record not found' });
     }
     const settings = await prisma.systemSetting.findFirst();
-    const evidenceRequired = settings ? settings.evidenceRequirement : false;
+    const evidenceRequired = settings ? settings.evidenceRequirementEnabled : false;
     if (evidenceRequired && !participation.proofUrl) {
       return res.status(400).json({ error: 'Proof is required for approval based on system settings' });
     }
@@ -225,6 +226,11 @@ router.patch('/participation/:id/approve', authenticateJWT, requireRole(['ADMIN'
       })
     ]);
     await evaluateBadgesForEmployee(participation.employeeId);
+    await sendNotification(
+      participation.employeeId,
+      'CSR_APPROVED',
+      `Your participation in CSR Activity "${participation.activity.title}" was approved.`
+    );
     res.json({
       message: 'Participation approved and points awarded',
       participation: updatedParticipation
@@ -236,12 +242,24 @@ router.patch('/participation/:id/approve', authenticateJWT, requireRole(['ADMIN'
 
 router.patch('/participation/:id/reject', authenticateJWT, requireRole(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
   try {
+    const participation = await prisma.employeeParticipation.findUnique({
+      where: { id: req.params.id },
+      include: { activity: true }
+    });
+    if (!participation) {
+      return res.status(404).json({ error: 'Participation record not found' });
+    }
     const updated = await prisma.employeeParticipation.update({
       where: { id: req.params.id },
       data: {
         approvalStatus: 'REJECTED'
       }
     });
+    await sendNotification(
+      participation.employeeId,
+      'CSR_REJECTED',
+      `Your participation in CSR Activity "${participation.activity.title}" was rejected.`
+    );
     res.json(updated);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

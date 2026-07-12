@@ -4,6 +4,7 @@ import { authenticateJWT, requireRole, AuthenticatedRequest } from '../middlewar
 import { upload } from '../middleware/upload';
 import { isValidTransition } from '../utils/transitions';
 import { evaluateBadgesForEmployee } from '../services/gamification';
+import { sendNotification } from '../services/notificationService';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -182,7 +183,9 @@ router.patch('/participation/challenge/:id/approve', authenticateJWT, requireRol
     if (!participation) {
       return res.status(404).json({ error: 'Challenge participation record not found' });
     }
-    if (participation.challenge.evidenceRequired && !participation.proofUrl) {
+    const settings = await prisma.systemSetting.findFirst();
+    const globalReq = settings ? settings.evidenceRequirementEnabled : false;
+    if ((participation.challenge.evidenceRequired || globalReq) && !participation.proofUrl) {
       return res.status(400).json({ error: 'Proof file is required for this challenge' });
     }
     const xp = participation.challenge.xp;
@@ -212,6 +215,11 @@ router.patch('/participation/challenge/:id/approve', authenticateJWT, requireRol
       })
     ]);
     await evaluateBadgesForEmployee(participation.employeeId);
+    await sendNotification(
+      participation.employeeId,
+      'CHALLENGE_APPROVED',
+      `Your participation in Challenge "${participation.challenge.title}" was approved.`
+    );
     res.json({
       message: 'Challenge participation approved and XP awarded',
       participation: updated
@@ -223,12 +231,24 @@ router.patch('/participation/challenge/:id/approve', authenticateJWT, requireRol
 
 router.patch('/participation/challenge/:id/reject', authenticateJWT, requireRole(['ADMIN', 'ESG_MANAGER']), async (req, res) => {
   try {
+    const participation = await prisma.challengeParticipation.findUnique({
+      where: { id: req.params.id },
+      include: { challenge: true }
+    });
+    if (!participation) {
+      return res.status(404).json({ error: 'Challenge participation record not found' });
+    }
     const updated = await prisma.challengeParticipation.update({
       where: { id: req.params.id },
       data: {
         approval: 'REJECTED'
       }
     });
+    await sendNotification(
+      participation.employeeId,
+      'CHALLENGE_REJECTED',
+      `Your participation in Challenge "${participation.challenge.title}" was rejected.`
+    );
     res.json(updated);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
