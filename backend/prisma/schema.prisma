@@ -76,25 +76,46 @@ enum ComplianceStatus {
   CLOSED
 }
 
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ChallengeStatus {
+  DRAFT
+  ACTIVE
+  UNDER_REVIEW
+  COMPLETED
+  ARCHIVED
+}
+
+enum ChallengeApproval {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
-  id                     String                  @id @default(uuid())
+  id                     String                   @id @default(uuid())
   name                   String
-  email                  String                  @unique
+  email                  String                   @unique
   passwordHash           String
-  role                   Role                    @default(EMPLOYEE)
+  role                   Role                     @default(EMPLOYEE)
   departmentId           String?
-  department             Department?             @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
-  managedDepartments     Department[]            @relation("DepartmentHead")
-  pointsBalance          Int                     @default(0)
+  department             Department?              @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+  managedDepartments     Department[]             @relation("DepartmentHead")
+  pointsBalance          Int                      @default(0)
   carbonTransactions     CarbonTransaction[]
   csrParticipations      EmployeeParticipation[]
   policyAcknowledgements PolicyAcknowledgement[]
-  managedAudits          Audit[]                 @relation("AuditAuditor")
-  complianceIssues       ComplianceIssue[]       @relation("ComplianceIssueOwner")
+  managedAudits          Audit[]                  @relation("AuditAuditor")
+  complianceIssues       ComplianceIssue[]        @relation("ComplianceIssueOwner")
   diversityRecord        DiversityRecord?
   trainingRecords        TrainingRecord[]
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  challengeParticipations ChallengeParticipation[] @relation("UserChallengeParticipations")
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
 }
 
 model Department {
@@ -123,6 +144,7 @@ model Category {
   type          CategoryType
   status        String        @default("ACTIVE")
   csrActivities CSRActivity[]
+  challenges    Challenge[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -348,6 +370,41 @@ model SystemSetting {
   evidenceRequirement Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+model Challenge {
+  id               String                   @id @default(uuid())
+  title            String
+  categoryId       String
+  category         Category                 @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  description      String?
+  xp               Int
+  difficulty       Difficulty
+  evidenceRequired Boolean                  @default(false)
+  deadline         DateTime
+  status           ChallengeStatus          @default(DRAFT)
+  participations   ChallengeParticipation[]
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([categoryId])
+}
+
+model ChallengeParticipation {
+  id          String            @id @default(uuid())
+  challengeId String
+  challenge   Challenge         @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    User              @relation("UserChallengeParticipations", fields: [employeeId], references: [id], onDelete: Cascade)
+  progress    Int               @default(0)
+  proofUrl    String?
+  approval    ChallengeApproval @default(PENDING)
+  xpAwarded   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([challengeId])
+  @@index([employeeId])
 }
 
 model HealthCheck {

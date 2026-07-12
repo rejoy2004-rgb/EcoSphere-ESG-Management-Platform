@@ -11,6 +11,7 @@ const auth_1 = __importDefault(require("./routes/auth"));
 const social_1 = __importDefault(require("./routes/social"));
 const training_1 = __importDefault(require("./routes/training"));
 const dashboard_1 = __importDefault(require("./routes/dashboard"));
+const challenges_1 = __importDefault(require("./routes/challenges"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 4000;
@@ -21,6 +22,7 @@ app.use('/api/auth', auth_1.default);
 app.use('/api', social_1.default);
 app.use('/api/training-records', training_1.default);
 app.use('/api/dashboard', dashboard_1.default);
+app.use('/api', challenges_1.default);
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',

@@ -113,4 +113,44 @@ router.get('/social', auth_1.authenticateJWT, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+router.get('/governance', auth_1.authenticateJWT, async (req, res) => {
+    try {
+        const from = req.query.from;
+        const to = req.query.to;
+        const [totalAcks, ackCount, openIssues, overdueIssues, completedAudits] = await Promise.all([
+            prisma.policyAcknowledgement.count(),
+            prisma.policyAcknowledgement.count({ where: { status: 'ACKNOWLEDGED' } }),
+            prisma.complianceIssue.count({
+                where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }
+            }),
+            prisma.complianceIssue.count({
+                where: {
+                    status: { notIn: ['RESOLVED', 'CLOSED'] },
+                    dueDate: { lt: new Date() }
+                }
+            }),
+            prisma.audit.count({
+                where: {
+                    status: 'COMPLETED',
+                    ...(from || to ? {
+                        endDate: {
+                            ...(from ? { gte: new Date(from) } : {}),
+                            ...(to ? { lte: new Date(to) } : {})
+                        }
+                    } : {})
+                }
+            })
+        ]);
+        const policyAcknowledgementRate = totalAcks > 0 ? (ackCount / totalAcks) * 100 : 0;
+        res.json({
+            policyAcknowledgementRate,
+            openComplianceIssues: openIssues,
+            overdueComplianceIssues: overdueIssues,
+            auditsCompletedThisPeriod: completedAudits
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 exports.default = router;
