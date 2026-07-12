@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { PrismaClient } from '@prisma/client';
 import { sendNotification } from '../services/notificationService';
+import { persistDepartmentScore } from '../services/scoring';
 
 const prisma = new PrismaClient();
 
@@ -76,8 +77,18 @@ async function sendPolicyAcknowledgementReminders() {
   }
 }
 
-async function recalculateScoresPlaceholder() {
-  console.log('[CRON JOB] Recalculating department scoring rollups...');
+async function recalculateScoresJob() {
+  try {
+    const departments = await prisma.department.findMany();
+    const now = new Date();
+    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    for (const dept of departments) {
+      await persistDepartmentScore(dept.id, period);
+    }
+    console.log('[CRON JOB] Recalculated department scoring rollups for period:', period);
+  } catch (error) {
+    console.error('Failed to recalculate scoring rollups cron:', error);
+  }
 }
 
 export function startScheduler() {
@@ -90,6 +101,6 @@ export function startScheduler() {
   });
 
   cron.schedule('0 3 * * *', async () => {
-    await recalculateScoresPlaceholder();
+    await recalculateScoresJob();
   });
 }

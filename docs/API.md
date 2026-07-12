@@ -766,5 +766,68 @@ Retrieve ranked leaderboards.
     }
   ]
   ```
+---
 
+## 15. ESG Scoring Module
 
+### Scoring Formula Configuration and Calculations
+
+#### 1. Environmental Score
+- **Formula:** `score = 100 * clamp(targetValue / actualEmissions, 0, 1)`
+- **Normalized:** Ranges from 0 to 100.
+- **Edge Cases:**
+  - If no `EnvironmentalGoal` target matches the period for the department, the score defaults to 100.
+  - If `actualEmissions` is 0, the score is 100.
+  - If `targetValue` is less than or equal to 0, the score is 100.
+
+#### 2. Social Score
+- **Formula:** Combined weighted average of CSR participation rate (approved employees), Diversity Simpson Index, and training completion rate.
+- **Weights:** Loaded from `SystemSetting.subScoreFormulaConfigJson` (defaulting to 40% CSR, 30% Diversity, and 30% Training).
+- **Edge Cases:** If no employee or training records exist, sub-rates default to 100% to prevent division by zero.
+
+#### 3. Governance Score
+- **Formula:** Combined weighted average of Policy acknowledgement rate, Audit completion rate, and Compliance issue resolution rate (with a 10-point deduction penalty for each overdue compliance issue).
+- **Weights:** Loaded from settings (defaulting to 40% Policies, 30% Audits, and 30% Compliance).
+- **Edge Cases:** If no data exists, sub-rates default to 100%.
+
+#### 4. Total and Overall ESG Rollups
+- **Department Total Score:** Combined weighted average of the department's Environmental, Social, and Governance scores using settings weights (`esgWeightEnvironmental` / `esgWeightSocial` / `esgWeightGovernance`).
+- **Overall ESG Score:** Simple average of all departments' total scores in the period.
+
+### POST /api/scoring/recalculate
+Triggers ESG score recalculations for a department or all departments.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Body:**
+  ```json
+  {
+    "departmentId": "department-uuid-1",
+    "period": "2026-07"
+  }
+  ```
+- **Response:** 200 OK
+
+### GET /api/dashboard/esg-overview
+Retrieves overall ESG score, trend over time, and individual department scores.
+- **Response:**
+  ```json
+  {
+    "overallESGScore": 66.5,
+    "departmentScores": [
+      {
+        "id": "score-uuid-1",
+        "departmentId": "department-uuid-1",
+        "period": "2026-07",
+        "environmentalScore": 80.0,
+        "socialScore": 50.0,
+        "governanceScore": 65.0,
+        "totalScore": 66.5
+      }
+    ],
+    "trendOverTime": [
+      {
+        "period": "2026-07",
+        "overallScore": 66.5
+      }
+    ]
+  }
+  ```

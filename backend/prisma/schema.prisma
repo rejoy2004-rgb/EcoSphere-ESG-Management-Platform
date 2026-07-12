@@ -139,6 +139,7 @@ model Department {
   audits             Audit[]             @relation("AuditDepartment")
   environmentalGoals EnvironmentalGoal[]
   sourceRecords      SourceRecord[]      @relation("DepartmentSourceRecords")
+  scores             DepartmentScore[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 }
@@ -495,4 +496,21 @@ model HealthCheck {
   id        Int      @id @default(autoincrement())
   status    String
   checkedAt DateTime @default(now())
+}
+
+model DepartmentScore {
+  id                 String     @id @default(uuid())
+  departmentId       String
+  department         Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  period             String
+  environmentalScore Float
+  socialScore        Float
+  governanceScore    Float
+  totalScore         Float
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@unique([departmentId, period])
+  @@index([departmentId])
+  @@index([period])
 }
