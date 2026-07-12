@@ -12,3 +12,149 @@ model HealthCheck {
   status    String
   checkedAt DateTime @default(now())
 }
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+model Department {
+  id                 String              @id @default(uuid())
+  name               String
+  code               String              @unique
+  headId             String?
+  parentDepartmentId String?
+  parentDepartment   Department?         @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  childDepartments   Department[]        @relation("DepartmentHierarchy")
+  employeeCount      Int                 @default(0)
+  status             Status
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  environmentalGoals EnvironmentalGoal[]
+}
+
+enum CategoryType {
+  CSR_ACTIVITY
+  CHALLENGE
+}
+
+model Category {
+  id        String       @id @default(uuid())
+  name      String
+  type      CategoryType
+  status    Status
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+enum EmissionActivityType {
+  PURCHASE
+  MANUFACTURING
+  EXPENSE
+  FLEET
+}
+
+model EmissionFactor {
+  id           String               @id @default(uuid())
+  activityType EmissionActivityType
+  unit         String
+  co2eFactor   Decimal
+  source       String?
+  validFrom    DateTime
+  validTo      DateTime?
+  status       Status
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([activityType, unit])
+}
+
+model ProductESGProfile {
+  id                    String   @id @default(uuid())
+  productName           String
+  carbonFootprintPerUnit Decimal
+  sustainabilityRating  String?
+  materialComposition   String?  @db.Text
+  certifications        String[]
+  status                Status
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+enum GoalStatus {
+  ON_TRACK
+  AT_RISK
+  ACHIEVED
+  MISSED
+}
+
+model EnvironmentalGoal {
+  id           String     @id @default(uuid())
+  title        String
+  description  String?    @db.Text
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  metricType   String
+  targetValue  Decimal
+  currentValue Decimal    @default(0)
+  unit         String
+  startDate    DateTime
+  targetDate   DateTime
+  status       GoalStatus
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum PolicyCategory {
+  ENVIRONMENTAL
+  SOCIAL
+  GOVERNANCE
+}
+
+enum PolicyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model ESGPolicy {
+  id                       String         @id @default(uuid())
+  title                    String
+  description              String         @db.Text
+  category                 PolicyCategory
+  version                  String
+  effectiveDate            DateTime
+  attachmentUrl            String?
+  mandatoryAcknowledgement Boolean        @default(true)
+  status                   PolicyStatus
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+}
+
+model Badge {
+  id             String   @id @default(uuid())
+  name           String
+  description    String   @db.Text
+  unlockRuleJson Json
+  iconUrl        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+enum RewardStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+}
+
+model Reward {
+  id             String       @id @default(uuid())
+  name           String
+  description    String       @db.Text
+  pointsRequired Int
+  stock          Int
+  status         RewardStatus
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
