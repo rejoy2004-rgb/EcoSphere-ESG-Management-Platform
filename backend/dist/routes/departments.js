@@ -163,4 +163,25 @@ router.delete('/:id', (0, auth_1.requireRole)(['ADMIN']), (0, errors_1.asyncHand
     });
     res.json({ message: 'Department soft deleted successfully', data: deletedDept });
 }));
+router.get('/:id/carbon', (0, errors_1.asyncHandler)(async (req, res) => {
+    const { id } = req.params;
+    const dept = await prisma_1.prisma.department.findUnique({ where: { id } });
+    if (!dept) {
+        throw new errors_1.AppError(404, 'NOT_FOUND', 'Department not found');
+    }
+    const txs = await prisma_1.prisma.carbonTransaction.findMany({
+        where: { departmentId: id },
+        orderBy: { transactionDate: 'asc' }
+    });
+    const dailyEmissions = {};
+    for (const tx of txs) {
+        const dateStr = tx.transactionDate.toISOString().split('T')[0];
+        dailyEmissions[dateStr] = (dailyEmissions[dateStr] || 0) + Number(tx.calculatedCO2e);
+    }
+    const data = Object.keys(dailyEmissions).map((date) => ({
+        date,
+        co2e: dailyEmissions[date]
+    }));
+    res.json(data);
+}));
 exports.default = router;

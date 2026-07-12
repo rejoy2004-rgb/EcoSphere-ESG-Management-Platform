@@ -6,6 +6,7 @@ const prisma_1 = require("../prisma");
 const errors_1 = require("../utils/errors");
 const auth_1 = require("../middleware/auth");
 const validation_1 = require("../middleware/validation");
+const calculations_1 = require("../utils/calculations");
 const router = (0, express_1.Router)();
 const goalStatusEnum = zod_1.z.enum(['ON_TRACK', 'AT_RISK', 'ACHIEVED', 'MISSED']);
 const createSchema = zod_1.z.object({
@@ -130,5 +131,37 @@ router.delete('/:id', (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), (0, err
         where: { id }
     });
     res.json({ message: 'Environmental goal hard deleted successfully', data: deletedGoal });
+}));
+router.patch('/:id/recalculate', (0, auth_1.requireRole)(['ADMIN', 'ESG_MANAGER']), (0, errors_1.asyncHandler)(async (req, res) => {
+    const { id } = req.params;
+    const goal = await prisma_1.prisma.environmentalGoal.findUnique({ where: { id } });
+    if (!goal) {
+        throw new errors_1.AppError(404, 'NOT_FOUND', 'Environmental goal not found');
+    }
+    const where = {};
+    if (goal.departmentId) {
+        where.departmentId = goal.departmentId;
+    }
+    const txs = await prisma_1.prisma.carbonTransaction.findMany({
+        where,
+        include: { emissionFactor: true }
+    });
+    const isCarbonMetric = goal.unit.toLowerCase().includes('co2') || goal.metricType.toLowerCase().includes('co2');
+    let total = 0;
+    for (const tx of txs) {
+        const txUnit = tx.emissionFactor.unit;
+        if (txUnit.toLowerCase() === goal.unit.toLowerCase() || txUnit.toLowerCase() === goal.metricType.toLowerCase() || isCarbonMetric) {
+            total += isCarbonMetric ? Number(tx.calculatedCO2e) : Number(tx.quantity);
+        }
+    }
+    const newStatus = (0, calculations_1.deriveGoalStatus)(total, Number(goal.targetValue), goal.startDate, goal.targetDate, new Date());
+    const updatedGoal = await prisma_1.prisma.environmentalGoal.update({
+        where: { id },
+        data: {
+            currentValue: total.toString(),
+            status: newStatus
+        }
+    });
+    res.json(updatedGoal);
 }));
 exports.default = router;

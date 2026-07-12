@@ -91,6 +91,8 @@ model User {
   policyAcknowledgements PolicyAcknowledgement[]
   managedAudits          Audit[]                 @relation("AuditAuditor")
   complianceIssues       ComplianceIssue[]       @relation("ComplianceIssueOwner")
+  diversityRecord        DiversityRecord?
+  trainingRecords        TrainingRecord[]
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
 }
@@ -188,6 +190,7 @@ model CSRActivity {
   location           String?
   targetParticipants Int?
   status             CSRStatus               @default(DRAFT)
+  points             Int                     @default(0)
   participations     EmployeeParticipation[]
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
@@ -314,6 +317,37 @@ model ProductESGProfile {
   status                 String   @default("ACTIVE")
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+}
+
+model DiversityRecord {
+  id          String   @id @default(uuid())
+  employeeId  String   @unique
+  employee    User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  gender      String
+  ageBand     String
+  nationality String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TrainingRecord {
+  id           String    @id @default(uuid())
+  employeeId   String
+  employee     User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  trainingName String
+  completedAt  DateTime?
+  status       String    @default("ASSIGNED")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([employeeId])
+}
+
+model SystemSetting {
+  id                  String   @id @default("default")
+  evidenceRequirement Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model HealthCheck {
