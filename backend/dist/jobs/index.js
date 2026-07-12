@@ -7,6 +7,7 @@ exports.startScheduler = startScheduler;
 const node_cron_1 = __importDefault(require("node-cron"));
 const client_1 = require("@prisma/client");
 const notificationService_1 = require("../services/notificationService");
+const scoring_1 = require("../services/scoring");
 const prisma = new client_1.PrismaClient();
 async function flagOverdueComplianceIssues() {
     try {
@@ -63,8 +64,19 @@ async function sendPolicyAcknowledgementReminders() {
         console.error('Failed to run policy acknowledgement reminders cron:', error);
     }
 }
-async function recalculateScoresPlaceholder() {
-    console.log('[CRON JOB] Recalculating department scoring rollups...');
+async function recalculateScoresJob() {
+    try {
+        const departments = await prisma.department.findMany();
+        const now = new Date();
+        const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        for (const dept of departments) {
+            await (0, scoring_1.persistDepartmentScore)(dept.id, period);
+        }
+        console.log('[CRON JOB] Recalculated department scoring rollups for period:', period);
+    }
+    catch (error) {
+        console.error('Failed to recalculate scoring rollups cron:', error);
+    }
 }
 function startScheduler() {
     node_cron_1.default.schedule('0 1 * * *', async () => {
@@ -74,6 +86,6 @@ function startScheduler() {
         await sendPolicyAcknowledgementReminders();
     });
     node_cron_1.default.schedule('0 3 * * *', async () => {
-        await recalculateScoresPlaceholder();
+        await recalculateScoresJob();
     });
 }
