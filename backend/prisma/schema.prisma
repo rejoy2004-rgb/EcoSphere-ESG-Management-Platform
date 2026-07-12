@@ -14,34 +14,306 @@ enum Role {
   EMPLOYEE
 }
 
+enum SourceType {
+  PURCHASE
+  MANUFACTURING
+  EXPENSE
+  FLEET
+}
+
+enum CategoryType {
+  CSR_ACTIVITY
+  CHALLENGE
+}
+
+enum PolicyCategory {
+  ENVIRONMENTAL
+  SOCIAL
+  GOVERNANCE
+}
+
+enum PolicyStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CSRStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AcknowledgementStatus {
+  PENDING
+  ACKNOWLEDGED
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplianceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
 model User {
-  id                 String       @id @default(uuid())
-  name               String
-  email              String       @unique
-  passwordHash       String
-  role               Role         @default(EMPLOYEE)
-  departmentId       String?
-  department         Department?  @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
-  managedDepartments Department[] @relation("DepartmentHead")
-  pointsBalance      Int          @default(0)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  id                     String                  @id @default(uuid())
+  name                   String
+  email                  String                  @unique
+  passwordHash           String
+  role                   Role                    @default(EMPLOYEE)
+  departmentId           String?
+  department             Department?             @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+  managedDepartments     Department[]            @relation("DepartmentHead")
+  pointsBalance          Int                     @default(0)
+  carbonTransactions     CarbonTransaction[]
+  csrParticipations      EmployeeParticipation[]
+  policyAcknowledgements PolicyAcknowledgement[]
+  managedAudits          Audit[]                 @relation("AuditAuditor")
+  complianceIssues       ComplianceIssue[]       @relation("ComplianceIssueOwner")
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 }
 
 model Department {
-  id                 String       @id @default(uuid())
-  name               String
-  code               String       @unique
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  code               String              @unique
   headId             String?
-  head               User?        @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  head               User?               @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
   parentDepartmentId String?
-  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: Cascade)
-  subDepartments     Department[] @relation("DepartmentHierarchy")
-  employeeCount      Int          @default(0)
-  status             String       @default("ACTIVE")
-  employees          User[]       @relation("UserDepartment")
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  parentDepartment   Department?         @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: Cascade)
+  subDepartments     Department[]        @relation("DepartmentHierarchy")
+  employeeCount      Int                 @default(0)
+  status             String              @default("ACTIVE")
+  employees          User[]              @relation("UserDepartment")
+  carbonTransactions CarbonTransaction[]
+  csrActivities      CSRActivity[]
+  audits             Audit[]             @relation("AuditDepartment")
+  environmentalGoals EnvironmentalGoal[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String
+  type          CategoryType
+  status        String        @default("ACTIVE")
+  csrActivities CSRActivity[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model EmissionFactor {
+  id                 String              @id @default(uuid())
+  activityType       String
+  unit               String
+  co2eFactor         Decimal             @db.Decimal(10, 4)
+  source             String?
+  validFrom          DateTime?
+  validTo            DateTime?
+  status             String              @default("ACTIVE")
+  carbonTransactions CarbonTransaction[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model ESGPolicy {
+  id                       String                  @id @default(uuid())
+  title                    String
+  description              String?
+  category                 PolicyCategory
+  version                  String
+  effectiveDate            DateTime
+  attachmentUrl            String?
+  mandatoryAcknowledgement Boolean                 @default(true)
+  status                   PolicyStatus            @default(DRAFT)
+  acknowledgements         PolicyAcknowledgement[]
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+}
+
+model CarbonTransaction {
+  id               String         @id @default(uuid())
+  departmentId     String
+  department       Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  emissionFactorId String
+  emissionFactor   EmissionFactor @relation(fields: [emissionFactorId], references: [id], onDelete: Cascade)
+  sourceType       SourceType
+  sourceRecordId   String?
+  quantity         Decimal        @db.Decimal(12, 4)
+  calculatedCO2e   Decimal        @db.Decimal(12, 4)
+  transactionDate  DateTime
+  autoCalculated   Boolean        @default(false)
+  createdById      String
+  createdBy        User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([departmentId])
+  @@index([emissionFactorId])
+  @@index([createdById])
+}
+
+model CSRActivity {
+  id                 String                  @id @default(uuid())
+  title              String
+  description        String?
+  categoryId         String
+  category           Category                @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  departmentId       String
+  department         Department              @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  date               DateTime
+  location           String?
+  targetParticipants Int?
+  status             CSRStatus               @default(DRAFT)
+  participations     EmployeeParticipation[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@index([categoryId])
+  @@index([departmentId])
+}
+
+model EmployeeParticipation {
+  id             String         @id @default(uuid())
+  employeeId     String
+  employee       User           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  activityId     String
+  activity       CSRActivity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  proofUrl       String?
+  approvalStatus ApprovalStatus @default(PENDING)
+  pointsEarned   Int            @default(0)
+  completionDate DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([employeeId])
+  @@index([activityId])
+}
+
+model PolicyAcknowledgement {
+  id             String                @id @default(uuid())
+  employeeId     String
+  employee       User                  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  policyId       String
+  policy         ESGPolicy             @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  acknowledgedAt DateTime?
+  status         AcknowledgementStatus @default(PENDING)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@unique([employeeId, policyId])
+  @@index([employeeId])
+  @@index([policyId])
+}
+
+model Audit {
+  id               String            @id @default(uuid())
+  title            String
+  departmentId     String?
+  department       Department?       @relation("AuditDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+  auditorId        String
+  auditor          User              @relation("AuditAuditor", fields: [auditorId], references: [id], onDelete: Cascade)
+  startDate        DateTime
+  endDate          DateTime?
+  findingsSummary  String?
+  status           AuditStatus       @default(PLANNED)
+  complianceIssues ComplianceIssue[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([departmentId])
+  @@index([auditorId])
+}
+
+model ComplianceIssue {
+  id          String           @id @default(uuid())
+  auditId     String?
+  audit       Audit?           @relation(fields: [auditId], references: [id], onDelete: SetNull)
+  severity    Severity
+  description String
+  ownerId     String
+  owner       User             @relation("ComplianceIssueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  dueDate     DateTime
+  status      ComplianceStatus @default(OPEN)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([auditId])
+  @@index([ownerId])
+  @@index([status, dueDate])
+}
+
+model Badge {
+  id             String   @id @default(uuid())
+  name           String
+  description    String?
+  unlockRuleJson String
+  iconUrl        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Reward {
+  id             String   @id @default(uuid())
+  name           String
+  description    String?
+  pointsRequired Int
+  stock          Int
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model EnvironmentalGoal {
+  id           String      @id @default(uuid())
+  title        String
+  description  String?
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  metricType   String
+  targetValue  Decimal     @db.Decimal(12, 4)
+  currentValue Decimal     @db.Decimal(12, 4) @default(0)
+  unit         String
+  startDate    DateTime
+  targetDate   DateTime
+  status       String      @default("ON_TRACK")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model ProductESGProfile {
+  id                     String   @id @default(uuid())
+  productName            String
+  carbonFootprintPerUnit Decimal  @db.Decimal(12, 4)
+  sustainabilityRating   String
+  materialComposition    String?
+  certifications         String?
+  status                 String   @default("ACTIVE")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }
 
 model HealthCheck {

@@ -33,22 +33,23 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.requireRole = void 0;
 exports.authenticateJWT = authenticateJWT;
-exports.authorizeRoles = authorizeRoles;
 const jwt = __importStar(require("jsonwebtoken"));
+const errors_1 = require("../utils/errors");
 const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-key-38c21a4e';
 function authenticateJWT(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-        return res.status(401).json({ error: 'Access token required' });
+        return next(new errors_1.AppError(401, 'UNAUTHORIZED', 'Access token required'));
     }
     const token = authHeader.split(' ')[1];
     if (!token) {
-        return res.status(401).json({ error: 'Access token required' });
+        return next(new errors_1.AppError(401, 'UNAUTHORIZED', 'Access token required'));
     }
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
-            return res.status(403).json({ error: 'Invalid or expired token' });
+            return next(new errors_1.AppError(403, 'FORBIDDEN', 'Invalid or expired token'));
         }
         req.user = {
             id: decoded.id,
@@ -59,14 +60,17 @@ function authenticateJWT(req, res, next) {
         next();
     });
 }
-function authorizeRoles(...roles) {
+const requireRole = (allowedRoles) => {
     return (req, res, next) => {
-        if (!req.user) {
-            return res.status(401).json({ error: 'Not authenticated' });
+        const userRole = req.headers['x-user-role'];
+        if (!userRole) {
+            return next(new errors_1.AppError(401, 'UNAUTHORIZED', 'Authentication credentials are required'));
         }
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ error: 'Access forbidden: insufficient role permissions' });
+        const roleString = Array.isArray(userRole) ? userRole[0] : userRole;
+        if (!allowedRoles.includes(roleString)) {
+            return next(new errors_1.AppError(403, 'FORBIDDEN', 'Access is denied'));
         }
         next();
     };
-}
+};
+exports.requireRole = requireRole;

@@ -1,106 +1,44 @@
-# EcoSphere Master Data Entity-Relationship Diagram (ERD)
-
-This document contains the Entity-Relationship Diagram (ERD) covering the 8 Master Data models defined in the EcoSphere backend using Prisma.
+# EcoSphere Database Entity Relationship Diagram
 
 ```mermaid
 erDiagram
-    Department {
-        string id PK
-        string name
-        string code UK
-        string headId
-        string parentDepartmentId FK
-        int employeeCount
-        Status status
-        DateTime createdAt
-        DateTime updatedAt
-    }
+    User ||--o{ CarbonTransaction : logs
+    User ||--o{ EmployeeParticipation : participates
+    User ||--o{ PolicyAcknowledgement : acknowledges
+    User ||--o{ Audit : audits
+    User ||--o{ ComplianceIssue : owns
+    User ||--o| Department : memberOf
+    User ||--o{ Department : manages
 
-    Category {
-        string id PK
-        string name
-        CategoryType type
-        Status status
-        DateTime createdAt
-        DateTime updatedAt
-    }
+    Department ||--o{ User : employees
+    Department ||--o{ CarbonTransaction : contains
+    Department ||--o{ CSRActivity : hosts
+    Department ||--o{ Audit : houses
 
-    EmissionFactor {
-        string id PK
-        EmissionActivityType activityType
-        string unit
-        Decimal co2eFactor
-        string source
-        DateTime validFrom
-        DateTime validTo
-        Status status
-        DateTime createdAt
-        DateTime updatedAt
-    }
+    Category ||--o{ CSRActivity : categorizes
 
-    ProductESGProfile {
-        string id PK
-        string productName
-        Decimal carbonFootprintPerUnit
-        string sustainabilityRating
-        string materialComposition
-        string[] certifications
-        Status status
-        DateTime createdAt
-        DateTime updatedAt
-    }
+    EmissionFactor ||--o{ CarbonTransaction : multiplies
 
-    EnvironmentalGoal {
-        string id PK
-        string title
-        string description
-        string departmentId FK
-        string metricType
-        Decimal targetValue
-        Decimal currentValue
-        string unit
-        DateTime startDate
-        DateTime targetDate
-        GoalStatus status
-        DateTime createdAt
-        DateTime updatedAt
-    }
+    ESGPolicy ||--o{ PolicyAcknowledgement : checks
 
-    ESGPolicy {
-        string id PK
-        string title
-        string description
-        PolicyCategory category
-        string version
-        DateTime effectiveDate
-        string attachmentUrl
-        boolean mandatoryAcknowledgement
-        PolicyStatus status
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    Badge {
-        string id PK
-        string name
-        string description
-        Json unlockRuleJson
-        string iconUrl
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    Reward {
-        string id PK
-        string name
-        string description
-        int pointsRequired
-        int stock
-        RewardStatus status
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    Department ||--o{ Department : "childDepartments (parentDepartmentId)"
-    Department ||--o{ EnvironmentalGoal : "environmentalGoals"
+    CSRActivity ||--o{ EmployeeParticipation : records
+    
+    Audit ||--o{ ComplianceIssue : triggers
 ```
+
+## Schema Entity Details
+
+### 1. Master Data Tables
+* **User**: id (UUID), name, email, passwordHash, role, departmentId, pointsBalance, timestamps
+* **Department**: id (UUID), name, code, headId, parentDepartmentId, employeeCount, status, timestamps
+* **Category**: id (UUID), name, type, status, timestamps
+* **EmissionFactor**: id (UUID), activityType, unit, co2eFactor, source, validFrom, validTo, status, timestamps
+* **ESGPolicy**: id (UUID), title, description, category, version, effectiveDate, attachmentFile, mandatoryAcknowledgement, status, timestamps
+
+### 2. Transactional Data Tables
+* **CarbonTransaction**: id (UUID), departmentId, emissionFactorId, sourceType, sourceRecordId, quantity, calculatedCO2e, transactionDate, autoCalculated, createdById, timestamps
+* **CSRActivity**: id (UUID), title, description, categoryId, departmentId, date, location, targetParticipants, status, timestamps
+* **EmployeeParticipation**: id (UUID), employeeId, activityId, proofUrl, approvalStatus, pointsEarned, completionDate, timestamps
+* **PolicyAcknowledgement**: id (UUID), employeeId, policyId, acknowledgedAt, status, timestamps (Unique on employeeId + policyId)
+* **Audit**: id (UUID), title, departmentId, auditorId, startDate, endDate, findingsSummary, status, timestamps
+* **ComplianceIssue**: id (UUID), auditId, severity, description, ownerId, dueDate, status, timestamps
