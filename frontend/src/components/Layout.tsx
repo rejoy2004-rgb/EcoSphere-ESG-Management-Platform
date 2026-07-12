@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export const Layout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -36,7 +36,11 @@ export const Layout: React.FC = () => {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
+    refreshUser();
+    const interval = setInterval(() => {
+      fetchNotifications();
+      refreshUser();
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -167,6 +171,11 @@ export const Layout: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-violet-400">
+              <Trophy className="w-4 h-4 text-violet-400" />
+              <span>{user?.pointsBalance ?? 0} XP</span>
             </div>
 
             <div className="flex items-center gap-3">
