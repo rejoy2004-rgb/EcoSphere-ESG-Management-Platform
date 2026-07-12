@@ -12,6 +12,7 @@ import notificationsRouter from './routes/notifications';
 import carbonRouter from './routes/carbon';
 import scoringRouter from './routes/scoring';
 import reportsRouter from './routes/reports';
+import esgOverviewRouter from './routes/esgOverview';
 import { startScheduler } from './jobs';
 
 dotenv.config();
@@ -34,6 +35,8 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/carbon-transactions', carbonRouter);
 app.use('/api/scoring', scoringRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/dashboard', esgOverviewRouter);
+app.use('/api/me/notifications', notificationsRouter);
 
 startScheduler();
 
