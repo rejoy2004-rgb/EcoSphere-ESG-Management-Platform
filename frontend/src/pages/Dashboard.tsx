@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatCard } from '../components/StatCard';
 import { apiRequest } from '../utils/api';
-import { Activity, ShieldAlert, Award, Footprints } from 'lucide-react';
+import { Activity, ShieldAlert, Award, Footprints, Shield, Eye, Info } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -18,24 +18,26 @@ export const Dashboard: React.FC = () => {
   const [environmental, setEnvironmental] = useState<any>(null);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [complianceIssues, setComplianceIssues] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [overviewData, envData, challengesData, complianceData] = await Promise.all([
+        const [overviewData, envData, challengesData, complianceData, activitiesData] = await Promise.all([
           apiRequest('/api/dashboard/esg-overview').catch(() => null),
           apiRequest('/api/dashboard/environmental').catch(() => null),
           apiRequest('/api/challenges').catch(() => []),
-          apiRequest('/api/compliance-issues').catch(() => [])
+          apiRequest('/api/compliance-issues').catch(() => []),
+          apiRequest('/api/me/notifications').catch(() => [])
         ]);
-
         setOverview(overviewData);
         setEnvironmental(envData);
         setChallenges(challengesData || []);
         setComplianceIssues(complianceData || []);
+        setActivities(activitiesData || []);
       } catch (err) {
-        console.error('Dashboard data fetch failed', err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -48,6 +50,12 @@ export const Dashboard: React.FC = () => {
   const activeChallengesCount = challenges.filter((c: any) => c.status === 'ACTIVE').length;
   const openComplianceCount = complianceIssues.filter((i: any) => i.status !== 'RESOLVED' && i.status !== 'CLOSED').length;
 
+  const departmentScores = [...(overview?.departmentScores || [])].sort((a: any, b: any) => (b.totalScore || 0) - (a.totalScore || 0));
+
+  const envAvg = departmentScores.reduce((acc, curr) => acc + (curr.environmentalScore || 0), 0) / (departmentScores.length || 1);
+  const socAvg = departmentScores.reduce((acc, curr) => acc + (curr.socialScore || 0), 0) / (departmentScores.length || 1);
+  const govAvg = departmentScores.reduce((acc, curr) => acc + (curr.governanceScore || 0), 0) / (departmentScores.length || 1);
+
   const trendData = overview?.trendOverTime || [
     { period: '2026-05', overallScore: 78 },
     { period: '2026-06', overallScore: 88 },
@@ -55,14 +63,13 @@ export const Dashboard: React.FC = () => {
   ];
 
   const columns = [
+    { header: 'Rank', accessor: (_row: any, index?: number) => `#${(index ?? 0) + 1}` },
     { header: 'Department', accessor: (row: any) => row.department?.name || 'Unknown' },
     { header: 'Environmental', accessor: (row: any) => `${row.environmentalScore?.toFixed(1) ?? '100.0'}` },
     { header: 'Social', accessor: (row: any) => `${row.socialScore?.toFixed(1) ?? '100.0'}` },
     { header: 'Governance', accessor: (row: any) => `${row.governanceScore?.toFixed(1) ?? '100.0'}` },
     { header: 'Total ESG Score', accessor: (row: any) => `${row.totalScore?.toFixed(1) ?? '100.0'}` }
   ];
-
-  const departmentScores = overview?.departmentScores || [];
 
   return (
     <div className="space-y-8">
@@ -99,15 +106,47 @@ export const Dashboard: React.FC = () => {
         />
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 rounded-2xl bg-[#161d30]/30 border border-white/5 shadow-xl flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Environmental (E)</span>
+            <span className="text-2xl font-extrabold text-emerald-400 mt-1 block">{loading ? '...' : envAvg.toFixed(1)}</span>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+            <Footprints className="w-5 h-5 text-emerald-400" />
+          </div>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-[#161d30]/30 border border-white/5 shadow-xl flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Social (S)</span>
+            <span className="text-2xl font-extrabold text-amber-400 mt-1 block">{loading ? '...' : socAvg.toFixed(1)}</span>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+            <Activity className="w-5 h-5 text-amber-400" />
+          </div>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-[#161d30]/30 border border-white/5 shadow-xl flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Governance (G)</span>
+            <span className="text-2xl font-extrabold text-indigo-400 mt-1 block">{loading ? '...' : govAvg.toFixed(1)}</span>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-indigo-400" />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-[#161d30]/40 border border-white/5 shadow-xl backdrop-blur-md space-y-4">
+        <div className="lg:col-span-2 p-6 rounded-2xl bg-[#161d30]/30 border border-white/5 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">ESG Score Trend</h3>
             <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
               Positive Growth
             </span>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] w-full">
             {loading ? (
               <div className="h-full flex items-center justify-center text-slate-500 italic text-sm">
                 Loading charts...
@@ -145,25 +184,23 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-6 rounded-2xl bg-[#161d30]/40 border border-white/5 shadow-xl backdrop-blur-md space-y-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-white mb-2">Platform Summary</h3>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              Overall scores aggregate calculations across all registered departments. Adjust subscore weights and thresholds within administrative settings to align metric rollups to organizational guidelines.
-            </p>
-          </div>
-          <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-900 space-y-3">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Environmental Weight:</span>
-              <span className="font-semibold text-slate-300">40%</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Social Weight:</span>
-              <span className="font-semibold text-slate-300">30%</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Governance Weight:</span>
-              <span className="font-semibold text-slate-300">30%</span>
+        <div className="p-6 rounded-2xl bg-[#161d30]/30 border border-white/5 shadow-xl flex flex-col justify-between">
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white">Recent Activity</h3>
+            <div className="space-y-3">
+              {activities.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">No recent system updates</p>
+              ) : (
+                activities.slice(0, 4).map((act) => (
+                  <div key={act.id} className="p-3 bg-slate-950/40 border border-white/5 rounded-xl text-xs flex gap-2">
+                    <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-white uppercase text-[10px] tracking-wider">{act.type?.replace('_', ' ')}</p>
+                      <p className="text-slate-400 mt-0.5 leading-relaxed">{act.message}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -176,3 +213,5 @@ export const Dashboard: React.FC = () => {
     </div>
   );
 };
+
+export default Dashboard;

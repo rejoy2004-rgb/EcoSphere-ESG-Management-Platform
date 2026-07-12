@@ -29,14 +29,13 @@ app.use('/api/auth', auth_1.default);
 app.use('/api', social_1.default);
 app.use('/api/training-records', training_1.default);
 app.use('/api/dashboard', dashboard_1.default);
+app.use('/api/dashboard', esgOverview_1.default);
 app.use('/api', challenges_1.default);
 app.use('/api/settings', settings_1.default);
 app.use('/api/notifications', notifications_1.default);
 app.use('/api/carbon-transactions', carbon_1.default);
 app.use('/api/scoring', scoring_1.default);
 app.use('/api/reports', reports_1.default);
-app.use('/api/dashboard', esgOverview_1.default);
-app.use('/api/me/notifications', notifications_1.default);
 (0, jobs_1.startScheduler)();
 app.get('/api/health', (req, res) => {
     res.json({

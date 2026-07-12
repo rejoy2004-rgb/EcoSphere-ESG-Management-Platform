@@ -29,14 +29,13 @@ app.use('/api/auth', authRouter);
 app.use('/api', socialRouter);
 app.use('/api/training-records', trainingRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/dashboard', esgOverviewRouter);
 app.use('/api', challengesRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/carbon-transactions', carbonRouter);
 app.use('/api/scoring', scoringRouter);
 app.use('/api/reports', reportsRouter);
-app.use('/api/dashboard', esgOverviewRouter);
-app.use('/api/me/notifications', notificationsRouter);
 
 startScheduler();
 
