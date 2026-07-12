@@ -454,3 +454,152 @@ Soft delete a reward.
 - **Headers:**
   - `x-user-role: ADMIN`
 - **Response:** 200 OK
+
+---
+
+## 9. Carbon Transactions
+
+### GET /api/carbon-transactions
+Retrieve a paginated list of carbon transactions.
+- **Query Parameters:**
+  - `page`: 1
+  - `limit`: 10
+  - `departmentId`: `e674b0cc-cd68-45a8-9d8f-9a00ec15f9b4`
+  - `sourceType`: `FLEET`
+  - `from`: `2026-07-01T00:00:00.000Z`
+  - `to`: `2026-07-31T23:59:59.000Z`
+- **Response:**
+  ```json
+  {
+    "data": [
+      {
+        "id": "a931a7c3-3069-42b7-bd20-00d939c36209",
+        "departmentId": "e674b0cc-cd68-45a8-9d8f-9a00ec15f9b4",
+        "emissionFactorId": "f7823ab9-bc91-456b-bcde-23498a12bc90",
+        "sourceType": "FLEET",
+        "quantity": "100.0000",
+        "co2eFactor": "2.3100",
+        "calculatedCO2e": "231.0000",
+        "transactionDate": "2026-07-12T14:25:00.000Z",
+        "description": "Weekly delivery fleet fuel usage",
+        "createdById": "7fa3f79-623c-41ad-bc4e-28b9fb6c81f6",
+        "createdAt": "2026-07-12T14:25:30.000Z",
+        "updatedAt": "2026-07-12T14:25:30.000Z"
+      }
+    ],
+    "meta": {
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    }
+  }
+  ```
+
+### GET /api/carbon-transactions/summary
+Retrieve a summary of carbon emissions.
+- **Query Parameters:**
+  - `departmentId`: `e674b0cc-cd68-45a8-9d8f-9a00ec15f9b4`
+  - `from`: `2026-07-01T00:00:00.000Z`
+  - `to`: `2026-07-31T23:59:59.000Z`
+- **Response:**
+  ```json
+  {
+    "totalCO2e": 231,
+    "breakdown": {
+      "PURCHASE": 0,
+      "MANUFACTURING": 0,
+      "EXPENSE": 0,
+      "FLEET": 231
+    }
+  }
+  ```
+
+### POST /api/carbon-transactions
+Create a new manual carbon transaction entry.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Headers:**
+  - `x-user-role: ESG_MANAGER`
+- **Body:**
+  ```json
+  {
+    "departmentId": "e674b0cc-cd68-45a8-9d8f-9a00ec15f9b4",
+    "sourceType": "FLEET",
+    "quantity": 100,
+    "unit": "liter",
+    "transactionDate": "2026-07-12T14:25:00.000Z",
+    "description": "Weekly delivery fleet fuel usage"
+  }
+  ```
+- **Response:** 201 Created
+
+---
+
+## 10. Department Carbon Tracking
+
+### GET /api/departments/:id/carbon
+Retrieve time series emissions of a department for charts.
+- **Response:**
+  ```json
+  [
+    {
+      "date": "2026-07-12",
+      "co2e": 231
+    }
+  ]
+  ```
+
+---
+
+## 11. Sustainability Goals Status Recalculation
+
+### PATCH /api/environmental-goals/:id/recalculate
+Recalculate goal status based on linear expected progress.
+- **Role:** `ADMIN` or `ESG_MANAGER`
+- **Headers:**
+  - `x-user-role: ESG_MANAGER`
+- **Response:** 200 OK
+
+### Thresholds and Status Derivation Logic:
+1. **ACHIEVED**: Progress meets or exceeds target value (`currentValue >= targetValue`).
+2. **MISSED**: Target date has passed (`now > targetDate`) and target value is not met.
+3. **ON_TRACK**: The progress percentage meets or exceeds the expected progress percentage based on elapsed time:
+   - `expectedProgress = (now - startDate) / (targetDate - startDate)`
+   - `actualProgress = currentValue / targetValue`
+   - Condition: `actualProgress >= expectedProgress`.
+4. **AT_RISK**: The progress percentage is behind the expected progress based on elapsed time (`actualProgress < expectedProgress`).
+
+---
+
+## 12. Environmental Dashboard
+
+### GET /api/dashboard/environmental
+Retrieve environmental statistics summary.
+- **Query Parameters:**
+  - `from`: `2026-07-01T00:00:00.000Z`
+  - `to`: `2026-07-31T23:59:59.000Z`
+- **Response:**
+  ```json
+  {
+    "totalEmissions": 231,
+    "emissionsTrend": [
+      {
+        "date": "2026-07-12",
+        "co2e": 231
+      }
+    ],
+    "emissionsByDepartment": [
+      {
+        "departmentId": "e674b0cc-cd68-45a8-9d8f-9a00ec15f9b4",
+        "departmentName": "Engineering",
+        "co2e": 231
+      }
+    ],
+    "goalsProgress": {
+      "achieved": 0,
+      "onTrack": 1,
+      "atRisk": 0,
+      "missed": 0
+    }
+  }
+  ```

@@ -9,6 +9,8 @@ import environmentalGoalsRouter from './routes/environmentalGoals';
 import esgPoliciesRouter from './routes/esgPolicies';
 import badgesRouter from './routes/badges';
 import rewardsRouter from './routes/rewards';
+import carbonTransactionsRouter from './routes/carbonTransactions';
+import dashboardRouter from './routes/dashboard';
 import { globalErrorHandler } from './utils/errors';
 
 dotenv.config();
@@ -35,6 +37,8 @@ app.use('/api/environmental-goals', environmentalGoalsRouter);
 app.use('/api/esg-policies', esgPoliciesRouter);
 app.use('/api/badges', badgesRouter);
 app.use('/api/rewards', rewardsRouter);
+app.use('/api/carbon-transactions', carbonTransactionsRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 app.use(globalErrorHandler);
 

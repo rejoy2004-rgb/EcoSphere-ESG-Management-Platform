@@ -4,6 +4,8 @@ import { prisma } from '../prisma';
 import { asyncHandler, AppError } from '../utils/errors';
 import { requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validation';
+import { deriveGoalStatus } from '../utils/calculations';
+
 
 const router = Router();
 
@@ -149,6 +151,51 @@ router.delete('/:id', requireRole(['ADMIN', 'ESG_MANAGER']), asyncHandler(async 
   });
 
   res.json({ message: 'Environmental goal hard deleted successfully', data: deletedGoal });
+}));
+
+router.patch('/:id/recalculate', requireRole(['ADMIN', 'ESG_MANAGER']), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const goal = await prisma.environmentalGoal.findUnique({ where: { id } });
+  if (!goal) {
+    throw new AppError(404, 'NOT_FOUND', 'Environmental goal not found');
+  }
+
+  const where: any = {};
+  if (goal.departmentId) {
+    where.departmentId = goal.departmentId;
+  }
+
+  const txs = await prisma.carbonTransaction.findMany({
+    where,
+    include: { emissionFactor: true }
+  });
+
+  const isCarbonMetric = goal.unit.toLowerCase().includes('co2') || goal.metricType.toLowerCase().includes('co2');
+  let total = 0;
+  for (const tx of txs) {
+    const txUnit = tx.emissionFactor.unit;
+    if (txUnit.toLowerCase() === goal.unit.toLowerCase() || txUnit.toLowerCase() === goal.metricType.toLowerCase() || isCarbonMetric) {
+      total += isCarbonMetric ? Number(tx.calculatedCO2e) : Number(tx.quantity);
+    }
+  }
+
+  const newStatus = deriveGoalStatus(
+    total,
+    Number(goal.targetValue),
+    goal.startDate,
+    goal.targetDate,
+    new Date()
+  );
+
+  const updatedGoal = await prisma.environmentalGoal.update({
+    where: { id },
+    data: {
+      currentValue: total.toString(),
+      status: newStatus
+    }
+  });
+
+  res.json(updatedGoal);
 }));
 
 export default router;
