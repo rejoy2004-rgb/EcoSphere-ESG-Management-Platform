@@ -13,5 +13,10 @@
     "build:frontend": "npm run build --workspace=frontend",
     "db:migrate": "npx prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss",
     "db:seed": "npx prisma db seed --schema=backend/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^7.0.2"
   }
 }
