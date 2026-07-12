@@ -1,124 +1,399 @@
-# EcoSphere: ESG Management Platform
+# 🌿 EcoSphere — ESG Management Platform
 
-EcoSphere is a comprehensive Environmental, Social, and Governance (ESG) Management Platform featuring carbon accounting, policy tracking, compliance audits, and a gamification engine (badges, rewards, and leaderboards).
+EcoSphere is an integrated **Environmental, Social, and Governance (ESG) management platform** that plugs into day-to-day ERP operations. It replaces manual, disconnected ESG reporting with a unified system that measures carbon emissions, tracks employee participation and diversity, manages governance compliance, and drives engagement through gamification — all rolled up into a single, configurable Overall ESG Score.
 
 ---
 
-## Folder Structure
+## Table of Contents
 
-- `/backend`: Node.js + Express + TypeScript + Prisma ORM (Postgres)
-- `/frontend`: React + TypeScript + Vite + Tailwind CSS
-- `/docs`: Documentation guides and API specs
+- [Overview](#overview)
+- [Core Modules](#core-modules)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Data Model](#data-model)
+- [Business Workflow](#business-workflow)
+- [Prerequisites](#prerequisites)
+- [Setup & Installation](#setup--installation)
+- [Environment Variables](#environment-variables)
+- [Database Setup & Seeding](#database-setup--seeding)
+- [Running the Project](#running-the-project)
+- [Demo Credentials](#demo-credentials)
+- [Core Business Rules](#core-business-rules)
+- [Reports](#reports)
+- [API Documentation](#api-documentation)
+- [Role-Based Access Control](#role-based-access-control)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap / Bonus Features](#roadmap--bonus-features)
+- [License](#license)
+
+---
+
+## Overview
+
+Organizations are expected to monitor carbon emissions, promote employee well-being, and maintain governance compliance — but most ERP systems treat ESG as an afterthought, collected manually and reviewed too late to act on. EcoSphere integrates ESG directly into daily operations by:
+
+- Automatically calculating carbon emissions from operational records (Purchase, Manufacturing, Expenses, Fleet)
+- Turning employee CSR participation, training, and diversity into measurable Social metrics
+- Tracking policies, audits, and compliance issues for Governance
+- Motivating participation through challenges, XP, badges, rewards, and leaderboards
+- Rolling everything up into department-level and organization-wide ESG scores, visualized on live dashboards and exportable reports
+
+---
+
+## Core Modules
+
+| Module | What It Covers |
+|---|---|
+| **Environmental** | Emission factors, carbon accounting, department carbon tracking, sustainability goals, environmental dashboard |
+| **Social** | CSR activities, employee participation, diversity metrics, training completion |
+| **Governance** | ESG policies, policy acknowledgements, audits, compliance issue tracking |
+| **Gamification** | Challenges (full lifecycle), XP, badges (auto-awarded), redeemable rewards, leaderboards |
+| **Reports** | Environmental, Social, Governance, ESG Summary, and a fully filterable Custom Report Builder — exportable as PDF / Excel / CSV |
+| **Settings & Administration** | Departments, categories, ESG scoring configuration, notification settings, business-rule toggles |
+
+---
+
+## Tech Stack
+
+**Backend**
+- Node.js + TypeScript + Express
+- PostgreSQL with Prisma ORM
+- JWT authentication with role-based access control
+- node-cron for scheduled jobs (overdue compliance checks, policy reminders, score recalculation)
+- exceljs / puppeteer / native CSV for report exports
+
+**Frontend**
+- React + TypeScript + Vite
+- Tailwind CSS
+- Recharts for dashboard visualizations
+- React Router
+
+**Infrastructure**
+- Local or S3-compatible file storage for proof-of-evidence uploads
+- Mock or SMTP-based email service for notifications
+
+---
+
+## Project Structure
+
+```
+ecosphere/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma       # full data model
+│   │   └── seed.ts             # demo data seed script
+│   ├── src/
+│   │   ├── modules/
+│   │   │   ├── environmental/
+│   │   │   ├── social/
+│   │   │   ├── governance/
+│   │   │   ├── gamification/
+│   │   │   ├── reports/
+│   │   │   └── settings/
+│   │   ├── services/
+│   │   │   ├── scoringEngine.ts
+│   │   │   ├── badgeEngine.ts
+│   │   │   └── notificationService.ts
+│   │   ├── jobs/                # scheduled cron jobs
+│   │   ├── middleware/          # auth, RBAC, validation
+│   │   └── app.ts
+│   ├── .env.example
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Dashboard/
+│   │   │   ├── Environmental/
+│   │   │   ├── Social/
+│   │   │   ├── Governance/
+│   │   │   ├── Gamification/
+│   │   │   ├── Reports/
+│   │   │   └── Settings/
+│   │   ├── components/          # DataTable, StatCard, FilterBar, etc.
+│   │   └── api/                 # API client
+│   ├── .env.example
+│   └── package.json
+├── docs/
+│   ├── ERD.md
+│   ├── API.md
+│   └── DEMO-SCRIPT.md
+└── README.md
+```
+
+---
+
+## Data Model
+
+### Master Data
+
+| Model | Purpose | Key Fields |
+|---|---|---|
+| Department | Organizational hierarchy and ESG ownership | Name, Code, Head, Parent Department, Employee Count, Status |
+| Category | Shared category values for Social/Gamification | Name, Type (CSR Activity / Challenge), Status |
+| Emission Factor | Carbon values used in calculations | Activity Type, Unit, CO2e Factor, Validity Range |
+| Product ESG Profile | ESG information linked to products | Carbon Footprint, Sustainability Rating |
+| Environmental Goal | Sustainability targets | Metric, Target, Current, Status |
+| ESG Policy | Governance policies | Title, Category, Version, Status |
+| Badge | Employee achievements | Name, Description, Unlock Rule, Icon |
+| Reward | Redeemable incentives | Name, Description, Points Required, Stock, Status |
+
+### Transactional Data
+
+| Model | Purpose | Key Fields |
+|---|---|---|
+| Carbon Transaction | Calculated emissions from ERP operations | Department, Factor, Quantity, CO2e |
+| CSR Activity | Social initiatives organized by the company | Title, Category, Department, Status |
+| Employee Participation | Employee involvement in CSR Activities only | Employee, Activity, Proof, Approval Status, Points Earned |
+| Challenge | Sustainability challenges | Title, Category, XP, Difficulty, Evidence Required, Status |
+| Challenge Participation | Employee progress within Challenges only | Challenge, Employee, Progress, Proof, Approval, XP Awarded |
+| Policy Acknowledgement | Employee policy acceptance | Employee, Policy, Status |
+| Audit | Governance audits | Department, Auditor, Status |
+| Compliance Issue | Governance violations | Audit, Severity, Owner, Due Date, Status |
+| Department Score | Aggregated ESG performance per department | Environmental / Social / Governance / Total Score |
+
+Full entity relationships are documented in [`docs/ERD.md`](docs/ERD.md).
+
+---
+
+## Business Workflow
+
+```
+Master Configuration
+  (Departments · Categories · Emission Factors · Products · Goals · Policies · Challenges)
+        │
+        ▼
+Daily Business Operations
+  (Purchase · Manufacturing · Expenses · Fleet)
+        │
+        ▼
+Carbon Transactions
+        │
+        ▼
+Employee Participation (CSR) · Challenge Participation
+Policy Acknowledgements · Audits
+        │
+        ▼
+Environmental Score   Social Score   Governance Score
+        │
+        ▼
+Department Total Score
+        │
+        ▼
+Overall ESG Score
+  (weighted average of Department Total Scores
+   default: Environmental 40% / Social 30% / Governance 30% — configurable in Settings)
+        │
+        ▼
+Organization Dashboard & Reports
+```
 
 ---
 
 ## Prerequisites
 
-- **Node.js**: v18.0.0 or higher
-- **PostgreSQL**: v15.0.0 or higher (running on local port 5432)
+- **Node.js** v18 or v20 (LTS)
+- **PostgreSQL** v14+ (local install or Docker)
+- **npm** (or yarn/pnpm, matching whatever the project was scaffolded with)
+- **Git**
 
 ---
 
-## Quick Setup & Running Instructions
+## Setup & Installation
 
-### 1. Installation
-Install dependencies for all workspaces from the project root:
 ```bash
+# 1. Clone the repository
+git clone <your-repo-url>
+cd ecosphere
+
+# 2. Start PostgreSQL (Docker option)
+docker run --name ecosphere-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=ecosphere \
+  -p 5432:5432 -d postgres:16
+
+# 3. Install backend dependencies
+cd backend
+npm install
+
+# 4. Install frontend dependencies
+cd ../frontend
 npm install
 ```
 
-### 2. Environment Variables Setup
+---
 
-#### Backend (`/backend/.env`)
-Create a `.env` file in the `/backend` folder:
+## Environment Variables
+
+### Backend — `backend/.env`
+
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/ecosphere?schema=public"
-JWT_SECRET="secret12345"
+JWT_SECRET="replace-with-a-long-random-string"
 PORT=4000
+FILE_STORAGE_PATH="./uploads"
+SMTP_HOST=""
+SMTP_PORT=587
+SMTP_USER=""
+SMTP_PASS=""
 ```
 
-#### Frontend (`/frontend/.env`)
-Create a `.env` file in the `/frontend` folder (if required):
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Postgres connection string used by Prisma |
+| `JWT_SECRET` | Secret used to sign authentication tokens |
+| `PORT` | Port the Express API runs on |
+| `FILE_STORAGE_PATH` | Local folder for uploaded proof/evidence files |
+| `SMTP_*` | Optional — real email delivery for notifications; leave blank to use the mock email sender |
+
+### Frontend — `frontend/.env`
+
 ```env
-VITE_API_URL="http://localhost:4000"
+VITE_API_BASE_URL="http://localhost:4000/api"
 ```
 
-### 3. Database Migration & Seeding
-From the root directory, push the schema to the database and seed the mock dataset:
+Copy the example files before editing:
 ```bash
-npm run db:migrate
-npm run db:seed
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-### 4. Running the Development Loop
-From the root directory, launch the backend and frontend servers in separate terminal panes:
+---
 
-- **Launch Backend (Port 4000)**:
-  ```bash
-  npm run dev:backend
-  ```
+## Database Setup & Seeding
 
-- **Launch Frontend (Port 5173)**:
-  ```bash
-  npm run dev:frontend
-  ```
+From `/backend`:
+
+```bash
+npx prisma generate          # generate the Prisma Client
+npx prisma migrate dev --name init   # create all tables
+npx prisma db seed           # populate demo data
+```
+
+The seed script creates:
+- 5+ departments (with hierarchy)
+- Users across all roles
+- Emission factors, goals, and policies
+- CSR activities, challenges, and participation records at varying approval states
+- Badges, rewards, audits, and compliance issues (including overdue ones)
+- Six months of carbon transaction history
+- Pre-computed department ESG scores for trend charts
+
+Inspect the seeded database visually:
+```bash
+npx prisma studio
+```
 
 ---
 
-## Demo Login Credentials
+## Running the Project
 
-You can sign in using these mock accounts (password is `password123` for all accounts):
+Open two terminal windows:
 
-- **ADMIN Role**:
-  - Email: `admin@ecosphere.local`
-- **ESG_MANAGER Role**:
-  - Email: `sarah.j@ecosphere.local`
-- **EMPLOYEE Role**:
-  - Email: `employee1@ecosphere.local`
+**Terminal 1 — Backend**
+```bash
+cd backend
+npm run dev
+```
+Runs at `http://localhost:4000`. Verify with `http://localhost:4000/api/health`.
+
+**Terminal 2 — Frontend**
+```bash
+cd frontend
+npm run dev
+```
+Runs at `http://localhost:5173`.
+
+Open `http://localhost:5173` in your browser and log in with one of the [demo credentials](#demo-credentials) below.
+
+### Optional: run both with one command
+From the project root, with a root `package.json` and `concurrently` installed:
+```bash
+npm run dev
+```
 
 ---
 
-## Judging Tour Guide (Platform Overview)
+## Demo Credentials
 
-Use this guide to inspect each implemented feature within the application shell:
+*(printed automatically at the end of `npx prisma db seed`)*
 
-### 1. Authentication & Security
-- **Path**: `/login` (Auth Shell)
-- **Features**: Clean login forms with active input states and redirects. Protected routing restricts guest access and redirects them to the login screen.
+| Role | Email | Password |
+|---|---|---|
+| Admin | admin@ecosphere.demo | password123 |
+| ESG Manager | manager@ecosphere.demo | password123 |
+| Department Head | depthead1@ecosphere.demo | password123 |
+| Employee | employee1@ecosphere.demo | password123 |
 
-### 2. Top Bar & XP points balance
-- **Path**: Persistent Header
-- **Features**: Displays the current employee's points balance in a visual XP pill next to the user menu. Refreshes live from ledger database writes. The top bar also hosts the active notification bell containing logs of compliance alerts and challenge completions.
+---
 
-### 3. Dashboard Rollups
-- **Path**: `/` (Dashboard Tab)
-- **Features**: Aggregates ESG indices, carbon transaction totals, active challenges counts, and compliance tickets. Displays interactive area trend charts over months and department performance tables.
+## Core Business Rules
 
-### 4. ESG Policies & My Acknowledgements
-- **Path**: `/governance` (Governance Tab)
-- **Features**:
-  - **ESG Policies**: Lists policies and versions. Admins/Managers can create policies and publish them (triggering automatic user acknowledgements). Features a progress drill-down tracking completed vs total employee acknowledgements.
-  - **My Acknowledgements**: Displays employee-facing pending guidelines where users can submit immediate signature responses.
+These are implemented as first-class platform behavior, not optional extras:
 
-### 5. Audits & Compliance
-- **Path**: `/governance` (Governance Tab)
-- **Features**:
-  - **Audits**: Audit log tables supporting planned schedules and status progression transitions.
-  - **Compliance**: Tickets list showcasing severity color-coding, overdue highlights, and status resolve buttons. The forms enforce owner ID and due date validations.
+- **Reward Redemption** — employees redeem Points/XP for catalog rewards, subject to stock; redemption deducts points and decrements stock atomically.
+- **Notification System** — in-app and/or email notifications for new compliance issues, CSR/Challenge approval decisions, policy acknowledgement reminders, and badge unlocks (channels configurable in Settings).
+- **Auto Emission Calculation** — when enabled, Carbon Transactions are generated automatically from linked operational records using the matching Emission Factor.
+- **Evidence Requirement** — when enabled, CSR/Challenge participation cannot be approved without an attached proof file.
+- **Badge Auto-Award** — when enabled, badges are assigned automatically the moment an employee's XP, completed-challenge count, or other tracked metric satisfies the badge's unlock rule.
+- **Compliance Issue Ownership** — every Compliance Issue requires an Owner and Due Date; overdue open issues are automatically flagged and notified nightly.
 
-### 6. Challenges & Approval Queue
-- **Path**: `/gamification` (Gamification Tab)
-- **Features**:
-  - **Challenges**: Lists active green tasks. Employees can join active items and upload progress values alongside image/PDF proofs.
-  - **Approval Queue**: Enables Managers/Admins to approve or reject pending participant proofs, transactionally writing XP deltas to the points ledger.
+All toggles live under **Settings → ESG Configuration**.
 
-### 7. Achievements Badges & Store Rewards
-- **Path**: `/gamification` (Gamification Tab)
-- **Features**:
-  - **My Badges**: Renders a grid showing unlocked badges colored and locked badges grayed out with a hover tooltip mapping rules.
-  - **Rewards**: catalog displaying reward name, points, stock, and status. Includes redemption history logs.
+---
 
-### 8. Leaderboard Rankings
-- **Path**: `/gamification` (Gamification Tab)
-- **Features**:
-  - Ranked user listing highlighting user row, supporting scope (org/dept) and period (weekly/monthly/quarterly/all-time) filters.
+## Reports
+
+Available reports, each filterable by **Department, Date Range, Module, Employee, Challenge, and ESG Category**, and exportable as **PDF / Excel / CSV**:
+
+- Environmental Report
+- Social Report
+- Governance Report
+- ESG Summary Report
+- Custom Report Builder (combine any of the above filters freely)
+
+---
+
+## API Documentation
+
+Full endpoint reference, request/response examples, and the role matrix live in [`docs/API.md`](docs/API.md). If Swagger/OpenAPI is enabled, it's available at:
+```
+http://localhost:4000/api/docs
+```
+
+---
+
+## Role-Based Access Control
+
+| Role | Access |
+|---|---|
+| **Admin** | Full access — master data, settings, all modules |
+| **ESG Manager** | Approve CSR/Challenge participation, manage audits & compliance, view all reports |
+| **Department Head** | Read access scoped to their department; can raise CSR activities/goals for their department |
+| **Employee** | Manage own participation, view own XP/badges, view leaderboard, redeem rewards |
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `ECONNREFUSED` connecting to Postgres | Confirm Postgres/Docker container is running |
+| Prisma migration fails | Check `DATABASE_URL`; as a last resort run `npx prisma migrate reset` (wipes data) |
+| Frontend can't reach backend | Confirm `VITE_API_BASE_URL` and that the backend is running; check CORS config |
+| Login fails with seeded credentials | Re-run `npx prisma db seed` |
+| Dashboard shows all zeros | Trigger `POST /api/scoring/recalculate` manually |
+| PDF export fails | Install Chromium for Puppeteer: `npx puppeteer browsers install chrome` |
+
+---
+
+## Roadmap / Bonus Features
+
+- Department ESG rankings view
+- Smart dashboard visualizations (heatmaps, radar charts)
+- Mobile-responsive interface refinements
+
+---
+
+## License
+
+Built for hackathon/demo purposes. Add your license of choice here (MIT recommended for open submission).
